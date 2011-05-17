@@ -111,7 +111,7 @@ elif mode == "decode":
         bitsdecoded = 0
         byteswritten = 0
 
-        print >> sys.stderr, "Decoding length",
+        print >> sys.stderr, "Decoding length...",
         # Extract file length
         inlen = []
         (x, y) = (0, 0)
@@ -141,7 +141,6 @@ elif mode == "decode":
                         bitsdecoded += 1
                 # Convert bit pattern to int
                 byte = int("".join(byte), 2)
-                print byte
                 tmpf.write(chr(byte))
                 byteswritten += 1
 
@@ -161,7 +160,7 @@ elif mode == "decode":
         # Decrypt
         outfile = open(sys.argv[4], "w")
         decrypt_args = ("filelock -d %s" % compress_tmp_file.name).split()
-        print >> sys.stderr, "Decrypting data...",
+        print >> sys.stderr, "Decrypting data..."
         p = subprocess.Popen(decrypt_args, stdout = outfile) 
         p.wait()
         size = os.path.getsize(sys.argv[4])
