@@ -1,0 +1,3 @@
+stegan.py
+
+Quick steganography project - Given an input file and a reference image: compress, encrypt, and encode file bits into reference image. Put image up in public space. Recipient saves it and runs stegan.py using the same reference image, file is recovered.
