@@ -1,6 +1,6 @@
-# stegan.py - TODO: more channels
-import sys, os, struct
-import Image, subprocess
+# stegan.py
+import sys, os, struct, random, subprocess
+import Image
 
 # Check usage and flags
 if len(sys.argv) != 4:
@@ -52,10 +52,12 @@ if mode == "encode":
                 byte = (bin(ord(byte))[2:]).zfill(8)
                 for bit in byte:
                         pixel = list(refpix[x, y])
-                        if pixel[0] == 0:
-                                pixel[0] += int(bit)
+                        # Randomly pick a channel to alter
+                        channel = random.randint(0, 2)
+                        if pixel[channel] == 0:
+                                pixel[channel] += int(bit)
                         else:
-                                pixel[0] -= int(bit)
+                                pixel[channel] -= int(bit)
                         refpix[x, y] = tuple(pixel)
                         (x, y) = (x+1, y) if x+1 < refw else (0, y+1)
         f.close()
@@ -82,12 +84,11 @@ elif mode == "decode":
         f = open("%s" % sys.argv[3][:-4], "w")
         (x, y) = (0, 0)
         i, size, length = 0, 4, 0
-        # Update size dynamically 
         while i < size:
                 # Decode byte and convert to an integer
                 byte = 0
                 for j in range(8):
-                        if inpix[x, y][0] != refpix[x, y][0]: byte |= (1<<(7-j))
+                        if inpix[x, y] != refpix[x, y]: byte |= (1<<(7-j))
                         (x, y) = (x+1, y) if x+1 < inw else (0, y+1)
                 # Decode length before data (little endian)
                 if i < 4:
