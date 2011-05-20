@@ -42,7 +42,7 @@ if mode == "encode":
         # Assume little endian byte order when packing size
         packedsize = struct.pack('i', os.path.getsize(encname))
 
-        # Encode encrypted data into image pixels (input.gz.enc => input.gz.enc.png)
+        # Encode encrypted data into image pixels (input.gz.enc => output)
         print "Encoding data...",
         f = open(encname, "r")
         (x, y) = (0, 0)
@@ -70,7 +70,7 @@ if mode == "encode":
         os.remove(encname)
         print "Done"
 
-        # Save output with .png extension
+        # Save output
         print "Saving to %s." % sys.argv[4]
         refim.save("%s" % sys.argv[4], "PNG")
 
@@ -99,8 +99,6 @@ elif mode == "decode":
                 else:
                         f.write(chr(byte))
                 i += 1
-        # Remove image
-        os.remove("%s" % sys.argv[3])
 
         # Close and flush write buffer
         f.close()
@@ -115,7 +113,7 @@ elif mode == "decode":
         decrf.close()
         print "Done. (%d bytes decrypted)" % os.path.getsize("%s.gz" % sys.argv[3])
 
-        # Decompress (input.gz => input)
+        # Decompress (input.gz => output)
         print "Decompressing data...",
         gzargs = ("gzip -cd %s.gz" % sys.argv[3]).split()
         gzf = open("%s" % sys.argv[4], "w")
@@ -127,6 +125,7 @@ elif mode == "decode":
         print "Cleaning up...",
         os.remove("%s.dec" % sys.argv[3])
         os.remove("%s.gz" % sys.argv[3])
+        os.remove("%s" % sys.argv[3])
         print "Done."
 
 else:
