@@ -1,10 +1,11 @@
 # stegan.py
+# Written by Eugene Ma
 import sys, os, struct, random, subprocess
 import Image
 
 # Check usage and flags
-if len(sys.argv) != 4:
-        print "Usage: stegan <mode> <reference image> <input file>"
+if len(sys.argv) != 5:
+        print "Usage: stegan <mode> <reference image> <input file> <output file>"
         print "Usage: available modes: encode, decode"
         sys.exit()
 mode = sys.argv[1]
@@ -70,8 +71,8 @@ if mode == "encode":
         print "Done"
 
         # Save output with .png extension
-        print "Saving to %s.png." % encname
-        refim.save("%s.png" % encname, "PNG")
+        print "Saving to %s." % sys.argv[4]
+        refim.save("%s" % sys.argv[4], "PNG")
 
 elif mode == "decode":
         # Open input image
@@ -79,13 +80,12 @@ elif mode == "decode":
         inpix = inim.load()
         inw, inh = inim.size
 
-        # Decode image (input.gz.enc.png => input.gz.enc)
+        # Decode image (input => input.dec)
         print "Decoding..."
-        f = open("%s" % sys.argv[3][:-4], "w")
+        f = open("%s.dec" % sys.argv[3], "w")
         (x, y) = (0, 0)
         i, size, length = 0, 4, 0
         while i < size:
-                # Decode byte and convert to an integer
                 byte = 0
                 for j in range(8):
                         if inpix[x, y] != refpix[x, y]: byte |= (1<<(7-j))
@@ -99,30 +99,35 @@ elif mode == "decode":
                 else:
                         f.write(chr(byte))
                 i += 1
+        # Remove image
+        os.remove("%s" % sys.argv[3])
 
         # Close and flush write buffer
         f.close()
-        print "Done. (%d bytes written)" % os.path.getsize("%s" % sys.argv[3][:-4])
+        print "Done. (%d bytes written)" % os.path.getsize("%s.dec" % sys.argv[3])
 
-        # Decrypted decoded file (input.gz.enc => input.gz)
+        # Decrypted decoded file (input.dec => input.gz)
         print "Decrypting data..."
-        decrargs = ("filelock -d %s" % sys.argv[3][:-4]).split()
-        decrf = open("%s" % sys.argv[3][:-8], "w")
+        decrargs = ("filelock -d %s.dec" % sys.argv[3]).split()
+        decrf = open("%s.gz" % sys.argv[3], "w")
         p = subprocess.Popen(decrargs, stdout = decrf) 
         p.wait()
         decrf.close()
-        print "Done. (%d bytes decrypted)" % os.path.getsize("%s" % sys.argv[3][:-8])
+        print "Done. (%d bytes decrypted)" % os.path.getsize("%s.gz" % sys.argv[3])
 
         # Decompress (input.gz => input)
         print "Decompressing data...",
-        gzargs = ("gzip -d %s" % sys.argv[3][:-8]).split()
-        p = subprocess.Popen(gzargs)
+        gzargs = ("gzip -cd %s.gz" % sys.argv[3]).split()
+        gzf = open("%s" % sys.argv[4], "w")
+        p = subprocess.Popen(gzargs, stdout = gzf)
         p.wait()
-        print "Done. (%d bytes decompressed)" % os.path.getsize("%s" % sys.argv[3][:-11])
+        print "Done. (%d bytes decompressed)" % os.path.getsize("%s" % sys.argv[4])
 
         # Clean up
-        os.remove(sys.argv[3])
-        os.remove(sys.argv[3][:-4])
+        print "Cleaning up...",
+        os.remove("%s.dec" % sys.argv[3])
+        os.remove("%s.gz" % sys.argv[3])
+        print "Done."
 
 else:
         print "Error: unknown mode"
