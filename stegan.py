@@ -21,13 +21,13 @@ if mode == "encode":
                 print >> sys.stderr, "Error: input file too large for reference image"
                 sys.exit()
 
-        # Pipe to filelock 
+        # Invoke gzip
         print >> sys.stderr, "Encoding..."
         gzargs = ("gzip -cf %s" % sys.argv[3]).split()
         gz = subprocess.Popen(gzargs, stdout = subprocess.PIPE)
         gz.wait()
 
-        # Read from stdin and pipe to pipe
+        # Read from gzip and point stdout to pipe
         flargs = ("filelock -e - -").split()
         fl = subprocess.Popen(flargs, stdin = gz.stdout, stdout = subprocess.PIPE) 
         data = fl.communicate()[0]
@@ -40,13 +40,13 @@ if mode == "encode":
         random.seed()
         for i in range(len(data)+4):
                 # Encode length in little-endian order
-                #byte = packedsize[i] if i < 4 else f.read(1)
                 byte = packedsize[i] if i < 4 else data[i-4]
+
                 # Convert from base 16 to binary
                 byte = (bin(ord(byte))[2:]).zfill(8)
                 for bit in byte:
-                        pixel = list(refpix[x, y])
                         # Randomly pick a channel to alter
+                        pixel = list(refpix[x, y])
                         channel = random.randint(0, 2)
                         if pixel[channel] == 0:
                                 pixel[channel] += int(bit)
@@ -72,26 +72,28 @@ elif mode == "decode":
         (x, y) = (0, 0)
         i, size, length = 0, 4, 0
         while i < size:
+                # Reconstruct a full byte
                 byte = 0
                 for j in range(8):
                         if inpix[x, y] != refpix[x, y]: byte |= (1<<(7-j))
                         (x, y) = (x+1, y) if x+1 < inw else (0, y+1)
+
                 # Decode length before data (little endian)
                 if i < 4:
                         length |= (byte << (i*8))
                         if i == 3: 
                                 size += length
-                                #print >> sys.stderr, "Length: %d bytes" % length
                 else:
                         fl.stdin.write(chr(byte))
                 i += 1
         fl.stdin.close()
         fl.wait()
 
+        # Decompress and deliver
         gzargs = ("gzip -d %s.gz" % sys.argv[4]).split()
         gz = subprocess.Popen(gzargs)
         gz.wait()
         print >> sys.stderr, "Done. Saving to %s." % sys.argv[4]
 else:
         print >> sys.stderr, "Error: unknown mode"
-        print >> sys.stderr, "Usage: available modes: encode, decode"
+        print >> sys.stderr, "Usage: available modes are encode, decode"
