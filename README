@@ -1,3 +1,7 @@
 stegan.py
+Author: Eugene Ma (edma2)
 
-Quick steganography project - Given an input file and a reference image: compress, encrypt, and encode file bits into reference image. Put image up in public space. Recipient saves it and runs stegan.py using the same reference image, file is recovered.
+Using stegan is easy - python stegan.py <mode> <reference image> <input file> <output file>
+Modes:
+  * encode: Generate a steganographically encoded image of input file.
+  * decode: Recover original file from encoded input image.
