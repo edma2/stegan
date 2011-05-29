@@ -22,25 +22,20 @@ if mode == "encode":
                 sys.exit()
 
         # Pipe to filelock 
-        print >> sys.stderr, "Compressing data...",
+        print >> sys.stderr, "Encoding..."
         gzargs = ("gzip -cf %s" % sys.argv[3]).split()
         gz = subprocess.Popen(gzargs, stdout = subprocess.PIPE)
         gz.wait()
-        print >> sys.stderr, "Done."
 
         # Read from stdin and pipe to pipe
-        print >> sys.stderr, "Encrypting data..."
         flargs = ("filelock -e - -").split()
         fl = subprocess.Popen(flargs, stdin = gz.stdout, stdout = subprocess.PIPE) 
         data = fl.communicate()[0]
-        print >> sys.stderr, "Done. (Encrypted size: %d bytes)" % len(data)
 
         # Assume little endian byte order when packing size
         packedsize = struct.pack('i', len(data))
 
         # Encode encrypted data into image pixels (input.gz.enc => output)
-        print >> sys.stderr, "Encoding data...",
-        #f = open(flname, "r")
         (x, y) = (0, 0)
         random.seed()
         for i in range(len(data)+4):
@@ -59,11 +54,9 @@ if mode == "encode":
                                 pixel[channel] -= int(bit)
                         refpix[x, y] = tuple(pixel)
                         (x, y) = (x+1, y) if x+1 < refw else (0, y+1)
-        #f.close()
-        print >> sys.stderr, "Done."
 
         # Save output
-        print >> sys.stderr, "Saving to %s." % sys.argv[4]
+        print >> sys.stderr, "Done. Saving to %s." % sys.argv[4]
         refim.save("%s" % sys.argv[4], "PNG")
 
 elif mode == "decode":
@@ -88,19 +81,17 @@ elif mode == "decode":
                         length |= (byte << (i*8))
                         if i == 3: 
                                 size += length
-                                print >> sys.stderr, "Length: %d bytes" % length
+                                #print >> sys.stderr, "Length: %d bytes" % length
                 else:
                         fl.stdin.write(chr(byte))
                 i += 1
         fl.stdin.close()
         fl.wait()
-        print >> sys.stderr, "Done."
 
-        print >> sys.stderr, "Decompressing data...",
         gzargs = ("gzip -d %s.gz" % sys.argv[4]).split()
         gz = subprocess.Popen(gzargs)
         gz.wait()
-        print >> sys.stderr, "Done. (%d bytes decompressed)" % os.path.getsize(sys.argv[4])
+        print >> sys.stderr, "Done. Saving to %s." % sys.argv[4]
 else:
         print >> sys.stderr, "Error: unknown mode"
         print >> sys.stderr, "Usage: available modes: encode, decode"
