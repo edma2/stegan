@@ -5,8 +5,8 @@ import Image
 
 # Check usage and flags
 if len(sys.argv) != 5:
-        print "Usage: %s <mode> <reference image> <input file> <output file>" % sys.argv[0]
-        print "Usage: available modes: encode, decode"
+        print >> sys.stderr, "Usage: %s <mode> <reference image> <input file> <output file>" % sys.argv[0]
+        print >> sys.stderr, "Usage: available modes: encode, decode"
         sys.exit()
 mode = sys.argv[1]
 
@@ -18,37 +18,35 @@ refw, refh = refim.size
 if mode == "encode":
         # Sanity check
         if (refw * refh) < (os.path.getsize(sys.argv[3]) * 8):
-                print "Error: input file too large for reference image"
+                print >> sys.stderr, "Error: input file too large for reference image"
                 sys.exit()
 
-        # Compress to .gz file (input => input.gz)
-        print "Compressing data...",
-        gzargs = ("gzip -f %s" % sys.argv[3]).split()
-        gzname = "%s.gz" % sys.argv[3]
-        p = subprocess.Popen(gzargs)
-        p.wait()
-        print "Done. (Compressed size: %d bytes)" % os.path.getsize(gzname)
+        # Pipe to filelock 
+        print >> sys.stderr, "Compressing data...",
+        gzargs = ("gzip -cf %s" % sys.argv[3]).split()
+        gz = subprocess.Popen(gzargs, stdout = subprocess.PIPE)
+        gz.wait()
+        print >> sys.stderr, "Done."
 
-        # Encrypt compressed data and add .enc suffix (input.gz => input.gz.enc)
-        print "Encrypting data..."
-        flargs = ("filelock %s" % gzname).split()
-        flname = "%s.enc" % gzname
-        flf = open(flname, "w")
-        p = subprocess.Popen(flargs, stdout = flf) 
-        p.wait()
-        flf.close()
-        print "Done. (Encrypted size: %d bytes)" % os.path.getsize(flname)
+        # Read from stdin and pipe to pipe
+        print >> sys.stderr, "Encrypting data..."
+        flargs = ("filelock -e - -").split()
+        fl = subprocess.Popen(flargs, stdin = gz.stdout, stdout = subprocess.PIPE) 
+        data = fl.communicate()[0]
+        print >> sys.stderr, "Done. (Encrypted size: %d bytes)" % len(data)
 
         # Assume little endian byte order when packing size
-        packedsize = struct.pack('i', os.path.getsize(flname))
+        packedsize = struct.pack('i', len(data))
 
         # Encode encrypted data into image pixels (input.gz.enc => output)
-        print "Encoding data...",
-        f = open(flname, "r")
+        print >> sys.stderr, "Encoding data...",
+        #f = open(flname, "r")
         (x, y) = (0, 0)
-        for i in range(os.path.getsize(flname)+4):
+        random.seed()
+        for i in range(len(data)+4):
                 # Encode length in little-endian order
-                byte = packedsize[i] if i < 4 else f.read(1)
+                #byte = packedsize[i] if i < 4 else f.read(1)
+                byte = packedsize[i] if i < 4 else data[i-4]
                 # Convert from base 16 to binary
                 byte = (bin(ord(byte))[2:]).zfill(8)
                 for bit in byte:
@@ -61,17 +59,11 @@ if mode == "encode":
                                 pixel[channel] -= int(bit)
                         refpix[x, y] = tuple(pixel)
                         (x, y) = (x+1, y) if x+1 < refw else (0, y+1)
-        f.close()
-        print "Done."
-
-        # Clean up .gz and .enc files
-        print "Cleaning up...",
-        os.remove(gzname)
-        os.remove(flname)
-        print "Done"
+        #f.close()
+        print >> sys.stderr, "Done."
 
         # Save output
-        print "Saving to %s." % sys.argv[4]
+        print >> sys.stderr, "Saving to %s." % sys.argv[4]
         refim.save("%s" % sys.argv[4], "PNG")
 
 elif mode == "decode":
@@ -80,9 +72,10 @@ elif mode == "decode":
         inpix = inim.load()
         inw, inh = inim.size
 
-        # Decode image (input => input.dec)
-        print "Decoding..."
-        f = open("%s.dec" % sys.argv[3], "w")
+        print >> sys.stderr, "Decoding..."
+        flargs = ("filelock -d - %s.gz" % sys.argv[4]).split()
+        fl = subprocess.Popen(flargs, stdin = subprocess.PIPE)
+
         (x, y) = (0, 0)
         i, size, length = 0, 4, 0
         while i < size:
@@ -95,39 +88,19 @@ elif mode == "decode":
                         length |= (byte << (i*8))
                         if i == 3: 
                                 size += length
-                                print "Length: %d bytes" % length
+                                print >> sys.stderr, "Length: %d bytes" % length
                 else:
-                        f.write(chr(byte))
+                        fl.stdin.write(chr(byte))
                 i += 1
+        fl.stdin.close()
+        fl.wait()
+        print >> sys.stderr, "Done."
 
-        # Close and flush write buffer
-        f.close()
-        print "Done. (%d bytes written)" % os.path.getsize("%s.dec" % sys.argv[3])
-
-        # Decrypted decoded file (input.dec => input.gz)
-        print "Decrypting data..."
-        decrargs = ("filelock -d %s.dec" % sys.argv[3]).split()
-        decrf = open("%s.gz" % sys.argv[3], "w")
-        p = subprocess.Popen(decrargs, stdout = decrf) 
-        p.wait()
-        decrf.close()
-        print "Done. (%d bytes decrypted)" % os.path.getsize("%s.gz" % sys.argv[3])
-
-        # Decompress (input.gz => output)
-        print "Decompressing data...",
-        gzargs = ("gzip -cd %s.gz" % sys.argv[3]).split()
-        gzf = open("%s" % sys.argv[4], "w")
-        p = subprocess.Popen(gzargs, stdout = gzf)
-        p.wait()
-        print "Done. (%d bytes decompressed)" % os.path.getsize("%s" % sys.argv[4])
-
-        # Clean up
-        print "Cleaning up...",
-        os.remove("%s.dec" % sys.argv[3])
-        os.remove("%s.gz" % sys.argv[3])
-        os.remove("%s" % sys.argv[3])
-        print "Done."
-
+        print >> sys.stderr, "Decompressing data...",
+        gzargs = ("gzip -d %s.gz" % sys.argv[4]).split()
+        gz = subprocess.Popen(gzargs)
+        gz.wait()
+        print >> sys.stderr, "Done. (%d bytes decompressed)" % os.path.getsize(sys.argv[4])
 else:
-        print "Error: unknown mode"
-        print "Usage: available modes: encode, decode"
+        print >> sys.stderr, "Error: unknown mode"
+        print >> sys.stderr, "Usage: available modes: encode, decode"
