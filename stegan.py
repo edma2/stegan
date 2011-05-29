@@ -5,7 +5,7 @@ import Image
 
 # Check usage and flags
 if len(sys.argv) != 5:
-        print "Usage: stegan <mode> <reference image> <input file> <output file>"
+        print "Usage: %s <mode> <reference image> <input file> <output file>" % sys.argv[0]
         print "Usage: available modes: encode, decode"
         sys.exit()
 mode = sys.argv[1]
@@ -31,22 +31,22 @@ if mode == "encode":
 
         # Encrypt compressed data and add .enc suffix (input.gz => input.gz.enc)
         print "Encrypting data..."
-        encargs = ("filelock %s" % gzname).split()
-        encname = "%s.enc" % gzname
-        encf = open(encname, "w")
-        p = subprocess.Popen(encargs, stdout = encf) 
+        flargs = ("filelock %s" % gzname).split()
+        flname = "%s.enc" % gzname
+        flf = open(flname, "w")
+        p = subprocess.Popen(flargs, stdout = flf) 
         p.wait()
-        encf.close()
-        print "Done. (Encrypted size: %d bytes)" % os.path.getsize(encname)
+        flf.close()
+        print "Done. (Encrypted size: %d bytes)" % os.path.getsize(flname)
 
         # Assume little endian byte order when packing size
-        packedsize = struct.pack('i', os.path.getsize(encname))
+        packedsize = struct.pack('i', os.path.getsize(flname))
 
         # Encode encrypted data into image pixels (input.gz.enc => output)
         print "Encoding data...",
-        f = open(encname, "r")
+        f = open(flname, "r")
         (x, y) = (0, 0)
-        for i in range(os.path.getsize(encname)+4):
+        for i in range(os.path.getsize(flname)+4):
                 # Encode length in little-endian order
                 byte = packedsize[i] if i < 4 else f.read(1)
                 # Convert from base 16 to binary
@@ -67,7 +67,7 @@ if mode == "encode":
         # Clean up .gz and .enc files
         print "Cleaning up...",
         os.remove(gzname)
-        os.remove(encname)
+        os.remove(flname)
         print "Done"
 
         # Save output
