@@ -16,7 +16,6 @@ refpix = refim.load()
 refw, refh = refim.size
 
 if mode == "encode":
-        # Sanity check
         if (refw * refh) < (os.path.getsize(sys.argv[3]) * 8):
                 print >> sys.stderr, "Error: input file too large for reference image"
                 sys.exit()
@@ -41,7 +40,6 @@ if mode == "encode":
         for i in range(len(data)+4):
                 # Encode length in little-endian order
                 byte = packedsize[i] if i < 4 else data[i-4]
-
                 # Convert from base 16 to binary
                 byte = (bin(ord(byte))[2:]).zfill(8)
                 for bit in byte:
@@ -60,7 +58,6 @@ if mode == "encode":
         refim.save("%s" % sys.argv[4], "PNG")
 
 elif mode == "decode":
-        # Open input image
         inim = Image.open(sys.argv[3]).convert("RGB")
         inpix = inim.load()
         inw, inh = inim.size
@@ -77,7 +74,6 @@ elif mode == "decode":
                 for j in range(8):
                         if inpix[x, y] != refpix[x, y]: byte |= (1<<(7-j))
                         (x, y) = (x+1, y) if x+1 < inw else (0, y+1)
-
                 # Decode length before data (little endian)
                 if i < 4:
                         length |= (byte << (i*8))
