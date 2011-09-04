@@ -2,14 +2,17 @@ stegan.py
 Author: Eugene Ma (edma2)
 
 Dependencies: 
-gunzip (http://www.gzip.org/)
-filelock (https://github.com/edma2/crypto)
+PyCrypto (https://www.dlitz.net/software/pycrypto/)
+PIL (http://www.pythonware.com/products/pil/)
 
-Using stegan is easy - python stegan.py <mode> <reference image> <input file> <output file>
+stegan.py <mode> <reference image> <input file> <output file>
 
 Modes:
-    encode
-        After compression and encryption, encode bits as imperceptible pixel alterations of reference image.
+encode 
+After compression and encryption, encode bits as imperceptible pixel
+alterations of reference image.
 
-    decode
-        Compare input to reference image and recover bits using a XOR-like pixel by pixel comparison of reference image and input. Then decrypt and decompress to recover original file.
+decode
+Compare input to reference image and recover bits using a XOR-like pixel by
+pixel comparison of reference image and input. Then decrypt and decompress to
+recover original file.

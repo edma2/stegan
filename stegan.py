@@ -1,95 +1,124 @@
 # stegan.py
-# Written by Eugene Ma
-import sys, os, struct, random, subprocess
+# Author: Eugene Ma
+import sys, os, struct, random, getpass, gzip, StringIO, hashlib
 import Image
+from Crypto.Cipher import Blowfish as bf
 
-# Check usage and flags
-if len(sys.argv) != 5:
-        print >> sys.stderr, "Usage: %s <mode> <reference image> <input file> <output file>" % sys.argv[0]
-        print >> sys.stderr, "Usage: available modes: encode, decode"
-        sys.exit()
-mode = sys.argv[1]
+# Compress data with gzip and return output as string
+def compress(data):
+        buf = StringIO.StringIO()
+        gz = gzip.GzipFile(mode = "w", fileobj = buf)
+        gz.write(data)
+        gz.close()
+        output = buf.getvalue()
+        buf.close()
+        return output
 
-# Prepare reference image
-refim = Image.open(sys.argv[2]).convert("RGB")
-refpix = refim.load()
-refw, refh = refim.size
+# Decompress data with gzip and return output as string
+def decompress(data):
+        buf = StringIO.StringIO(data)
+        gz = gzip.GzipFile(mode = "r", fileobj = buf)
+        output = gz.read()
+        gz.close()
+        buf.close()
+        return output
 
-if mode == "encode":
-        if (refw * refh) < (os.path.getsize(sys.argv[3]) * 8):
-                print >> sys.stderr, "Error: input file too large for reference image"
-                sys.exit()
+# Encrypt data with given key and initialization vector
+# Input data will be padded for you to ensure 8-byte alignment
+def encrypt(key, iv, data):
+        padding = "\x00" * (8 - len(data) % 8) if len(data) != 8 else ""
+        key = hashlib.sha256(key).digest()[:7]
+        data = bf.new(key, bf.MODE_CBC, iv).encrypt(data + padding)
+        return data
 
-        # Invoke gzip
-        print >> sys.stderr, "Encoding..."
-        gzargs = ("gzip -cf %s" % sys.argv[3]).split()
-        gz = subprocess.Popen(gzargs, stdout = subprocess.PIPE)
-        gz.wait()
+# Decrypt data with given key and initialization vector
+def decrypt(key, iv, data):
+        key = hashlib.sha256(key).digest()[:7]
+        return bf.new(key, bf.MODE_CBC, iv).decrypt(data)
 
-        # Read from gzip and point stdout to pipe
-        flargs = ("filelock -e - -").split()
-        fl = subprocess.Popen(flargs, stdin = gz.stdout, stdout = subprocess.PIPE) 
-        data = fl.communicate()[0]
+# Encode data into reference image
+def encode(ref, data):
+        pix = ref.load()
+        w, h = ref.size
+        x, y = (0, 0)
 
-        # Assume little endian byte order when packing size
-        packedsize = struct.pack('i', len(data))
+        # Store number of bytes to encode in first 4 bytes 
+        length = struct.pack('i', len(data))
+        for i in range(len(data) + 4):
+                byte = ord(length[i] if i < 4 else data[i-4])
+                for j in range(8):
+                        # Unpack pixel from tuple to list
+                        p = list(pix[x, y])
+                        ch = random.randint(0, 2)
+                        # Subtle pixel alteration if bit is set 
+                        if byte & (1 << (7 - j)): p[ch] -= 1 if p[ch] else -1
+                        pix[x, y] = tuple(p)
+                        (x, y) = (x + 1, y) if x + 1 < w else (0, y + 1)
 
-        # Encode encrypted data into image pixels (input.gz.enc => output)
-        (x, y) = (0, 0)
-        random.seed()
-        for i in range(len(data)+4):
-                # Encode length in little-endian order
-                byte = packedsize[i] if i < 4 else data[i-4]
-                # Convert from base 16 to binary
-                byte = (bin(ord(byte))[2:]).zfill(8)
-                for bit in byte:
-                        # Randomly pick a channel to alter
-                        pixel = list(refpix[x, y])
-                        channel = random.randint(0, 2)
-                        if pixel[channel] == 0:
-                                pixel[channel] += int(bit)
-                        else:
-                                pixel[channel] -= int(bit)
-                        refpix[x, y] = tuple(pixel)
-                        (x, y) = (x+1, y) if x+1 < refw else (0, y+1)
+# Decode data from image and reference image and return data string
+def decode(ref, im):
+        pix, rpix = im.load(), ref.load()
+        w, h = im.size
+        x, y = (0, 0)
+        size, length, i = 4, 0, 0
+        data = ""
 
-        # Save output
-        print >> sys.stderr, "Done. Saving to %s." % sys.argv[4]
-        refim.save("%s" % sys.argv[4], "PNG")
-
-elif mode == "decode":
-        inim = Image.open(sys.argv[3]).convert("RGB")
-        inpix = inim.load()
-        inw, inh = inim.size
-
-        print >> sys.stderr, "Decoding..."
-        flargs = ("filelock -d - %s.gz" % sys.argv[4]).split()
-        fl = subprocess.Popen(flargs, stdin = subprocess.PIPE)
-
-        (x, y) = (0, 0)
-        i, size, length = 0, 4, 0
         while i < size:
-                # Reconstruct a full byte
+                # Reconstruct full byte
                 byte = 0
                 for j in range(8):
-                        if inpix[x, y] != refpix[x, y]: byte |= (1<<(7-j))
-                        (x, y) = (x+1, y) if x+1 < inw else (0, y+1)
-                # Decode length before data (little endian)
-                if i < 4:
-                        length |= (byte << (i*8))
-                        if i == 3: 
-                                size += length
+                        if pix[x, y] != rpix[x, y]: byte |= (1 << (7 - j))
+                        (x, y) = (x + 1, y) if x + 1 < w else (0, y + 1)
+                # Decode length before data (little-endian)
+                if i < 4: 
+                        length |= (byte << (i * 8))
+                        if i == 3: size += length
                 else:
-                        fl.stdin.write(chr(byte))
+                        data += chr(byte)
                 i += 1
-        fl.stdin.close()
-        fl.wait()
+        return data
 
-        # Decompress and deliver
-        gzargs = ("gzip -d %s.gz" % sys.argv[4]).split()
-        gz = subprocess.Popen(gzargs)
-        gz.wait()
-        print >> sys.stderr, "Done. Saving to %s." % sys.argv[4]
+##############################################################################
+# Check usage and flags
+if len(sys.argv) != 5:
+        print "Usage: %s <mode> <ref> <input> <output>" % sys.argv[0]
+        print "Usage: available modes: encode, decode"
+        sys.exit()
+
+mode = sys.argv[1]
+if mode == "encode":
+        random.seed()
+
+        # Read and compress file contents
+        f = open(sys.argv[3])
+        data = compress(f.read())
+        f.close()
+
+        # Need enough pixels to encode each bit
+        ref = Image.open(sys.argv[2]).convert("RGB")
+        w, h = ref.size
+        if (w * h) < (os.path.getsize(sys.argv[3]) * 8):
+                print "Error: input file too large for given reference image"
+                sys.exit()
+
+        pw = getpass.getpass()
+        iv = struct.pack("Q", random.getrandbits(64))
+        length = struct.pack("i", len(data))
+
+        # Encoding format: original file length (4 bytes), IV, encrypted data
+        encode(ref, length + iv + encrypt(pw, iv, data))
+
+        ref.save("%s" % sys.argv[4], "PNG")
+elif mode == "decode":
+        ref, im = [Image.open(sys.argv[i]).convert("RGB") for i in [2, 3]]
+        f = open(sys.argv[4], "w")
+
+        data = decode(ref, im)
+        pw = getpass.getpass()
+        length = struct.unpack("i", data[:4])[0]
+        iv, data = data[4:12], data[12:]
+
+        f.write(decompress(decrypt(pw, iv, data)[:length]))
+        f.close()
 else:
-        print >> sys.stderr, "Error: unknown mode"
-        print >> sys.stderr, "Usage: available modes are encode, decode"
+        print "Error: unknown mode - available modes are encode, decode"
