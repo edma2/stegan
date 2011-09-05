@@ -28,8 +28,7 @@ def decompress(data):
 def encrypt(key, iv, data):
         padding = "\x00" * (8 - len(data) % 8) if len(data) != 8 else ""
         key = hashlib.sha256(key).digest()[:7]
-        data = bf.new(key, bf.MODE_CBC, iv).encrypt(data + padding)
-        return data
+        return bf.new(key, bf.MODE_CBC, iv).encrypt(data + padding)
 
 # Decrypt data with given key and initialization vector
 def decrypt(key, iv, data):
