@@ -97,8 +97,9 @@ if mode == "encode":
         # Need enough pixels to encode each bit
         ref = Image.open(sys.argv[2]).convert("RGB")
         w, h = ref.size
-        if (w * h) < (os.path.getsize(sys.argv[3]) * 8):
+        if (w * h) < (len(data) * 8):
                 print "Error: input file too large for given reference image"
+                print len(data)
                 sys.exit()
 
         pw = getpass.getpass()
@@ -111,13 +112,13 @@ if mode == "encode":
         ref.save("%s" % sys.argv[4], "PNG")
 elif mode == "decode":
         ref, im = [Image.open(sys.argv[i]).convert("RGB") for i in [2, 3]]
-        f = open(sys.argv[4], "w")
 
         data = decode(ref, im)
         pw = getpass.getpass()
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
 
+        f = open(sys.argv[4], "w")
         f.write(decompress(decrypt(pw, iv, data)[:length]))
         f.close()
 else:
