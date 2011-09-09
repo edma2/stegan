@@ -40,11 +40,9 @@ def decrypt(key, iv, data):
 # Returns a tuple of (x, y, channel)
 def nextbit(x, y, ch, im):
         if ch < 2:
-                ch += 1
+                return (x, y, ch + 1)
         else:
-                ch, width = 0, im.size[0]
-                (x, y) = (x + 1, y) if x + 1 < width else (0, y + 1)
-        return (x, y, ch)
+                return (x + 1, y, 0) if x + 1 < im.size[0] else (0, y + 1, 0)
 
 # Encode data into reference image where each input bit is embedded in the LSB
 # of RGB channels of a pixel. Encoding format: length (32-bit), data.
@@ -71,7 +69,7 @@ def decode(im):
                 byte = 0
                 # Decode byte mapped to next 8 bits
                 for j in range(8):
-                        byte |= ((pix[x, y][ch] & 0x1) << (7 - j))
+                        byte |= ((pix[x, y][ch] & 1) << (7 - j))
                         (x, y, ch) = nextbit(x, y, ch, im)
                 # First 4 bytes are length bytes, otherwise data byte
                 if i < 4: 
@@ -113,9 +111,9 @@ if mode == "encode":
         ref.save("%s" % sys.argv[4], "PNG")
 elif mode == "decode":
         im = Image.open(sys.argv[3]).convert("RGB")
+        pw = getpass.getpass()
 
         data = decode(im)
-        pw = getpass.getpass()
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
 
