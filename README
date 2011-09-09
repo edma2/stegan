@@ -19,7 +19,7 @@ each pixel is extracted, the resulting data is decrypted and decompressed.
 
 Usage:
 ----------------------
-if the input or output file is not given, assume standard input and standard
+If the input or output file is not given, assumes standard input and standard
 output, respectively.
 
 How to encode a file: 

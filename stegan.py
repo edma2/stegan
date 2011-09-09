@@ -105,7 +105,7 @@ if options.mode == "enc":
         maxbits = im.size[0] * im.size[1] * 3
         if maxbits < (len(data) * 8):
                 print "error: input file too large for given reference image"
-                print "maximum input size: %d" % maxbits
+                print "maximum input size: %d bytes" % maxbits / 8.0
                 sys.exit()
 
         # Encoding format: original file length (4 bytes), IV, encrypted data
