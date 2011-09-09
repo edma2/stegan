@@ -35,6 +35,17 @@ def decrypt(key, iv, data):
         key = hashlib.sha256(key).digest()[:7]
         return bf.new(key, bf.MODE_CBC, iv).decrypt(data)
 
+# Tells us where the next bit is expected
+# Arguments: x and y coordinates, current channel, image 
+# Returns a tuple of (x, y, channel)
+def nextbit(x, y, ch, im):
+        if ch < 2:
+                ch += 1
+        else:
+                ch, width = 0, im.size[0]
+                (x, y) = (x + 1, y) if x + 1 < width else (0, y + 1)
+        return (x, y, ch)
+
 # Encode data into reference image where each input bit is embedded in the LSB
 # of RGB channels of a pixel. Encoding format: length (32-bit), data.
 def encode(ref, data):
@@ -42,17 +53,12 @@ def encode(ref, data):
         x, y, ch = 0, 0, 0
         pix = ref.load()
         for i in range(len(data) + 4):
-                byte = ord(length[i] if i < 4 else data[i-4])
+                b = ord(length[i] if i < 4 else data[i-4])
                 for j in range(8):
                         p = list(pix[x, y])
-                        p[ch] = (p[ch] & ~1) \
-                                | ((byte & (1 << (7 - j))) >> (7 - j))
+                        p[ch] = (p[ch] &~ 1) | ((b & (1<<(7 - j))) >> (7 - j))
                         pix[x, y] = tuple(p)
-                        ch += 1
-                        if ch == 3:
-                                (x, y) = (x + 1, y) if x + 1 < ref.size[0] \
-                                                    else (0, y + 1)
-                                ch = 0
+                        (x, y, ch) = nextbit(x, y, ch, ref)
 
 # Decode data from image. Assume the image contains at least 4 bytes of data
 # corresponding to the length, then set real length after length is decoded.
@@ -66,11 +72,7 @@ def decode(im):
                 # Decode byte mapped to next 8 bits
                 for j in range(8):
                         byte |= ((pix[x, y][ch] & 0x1) << (7 - j))
-                        ch += 1
-                        if ch == 3:
-                                (x, y) = (x + 1, y) if x + 1 < im.size[0] \
-                                                    else (0, y + 1)
-                                ch = 0
+                        (x, y, ch) = nextbit(x, y, ch, im)
                 # First 4 bytes are length bytes, otherwise data byte
                 if i < 4: 
                         length |= (byte << (i * 8))
@@ -97,7 +99,7 @@ if mode == "encode":
         # Need enough pixels to encode each bit
         ref = Image.open(sys.argv[2]).convert("RGB")
         w, h = ref.size
-        if (w * h) < (len(data) * 8):
+        if (w * h * 3) < (len(data) * 8):
                 print "Error: input file too large for given reference image"
                 sys.exit()
 
