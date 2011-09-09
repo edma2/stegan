@@ -1,6 +1,6 @@
 # stegan.py
 # Author: Eugene Ma
-import sys, os, struct, random, getpass, gzip, StringIO, hashlib
+import sys, os, argparse, struct, random, getpass, gzip, StringIO, hashlib 
 import Image
 from Crypto.Cipher import Blowfish as bf
 
@@ -35,9 +35,9 @@ def decrypt(key, iv, data):
         key = hashlib.sha256(key).digest()[:7]
         return bf.new(key, bf.MODE_CBC, iv).decrypt(data)
 
-# Tells us where the next bit is expected
-# Arguments: x and y coordinates, current channel, image 
-# Returns a tuple of (x, y, channel)
+# Tells us where the next bit should be encoded. Arguments are x and y
+# coordinates, current channel, and Image object. Returns a tuple of (x, y,
+# channel)
 def nextbit(x, y, ch, im):
         if ch < 2:
                 return (x, y, ch + 1)
@@ -46,17 +46,17 @@ def nextbit(x, y, ch, im):
 
 # Encode data into reference image where each input bit is embedded in the LSB
 # of RGB channels of a pixel. Encoding format: length (32-bit), data.
-def encode(ref, data):
+def encode(im, data):
         length = struct.pack('i', len(data))
         x, y, ch = 0, 0, 0
-        pix = ref.load()
+        pix = im.load()
         for i in range(len(data) + 4):
                 b = ord(length[i] if i < 4 else data[i-4])
                 for j in range(8):
                         p = list(pix[x, y])
                         p[ch] = (p[ch] &~ 1) | ((b & (1<<(7 - j))) >> (7 - j))
                         pix[x, y] = tuple(p)
-                        (x, y, ch) = nextbit(x, y, ch, ref)
+                        (x, y, ch) = nextbit(x, y, ch, im)
 
 # Decode data from image. Assume the image contains at least 4 bytes of data
 # corresponding to the length, then set real length after length is decoded.
@@ -67,7 +67,7 @@ def decode(im):
         pix = im.load()
         while i < size:
                 byte = 0
-                # Decode byte mapped to next 8 bits
+                # Decode byte mapped to next 8 channels
                 for j in range(8):
                         byte |= ((pix[x, y][ch] & 1) << (7 - j))
                         (x, y, ch) = nextbit(x, y, ch, im)
@@ -81,44 +81,47 @@ def decode(im):
         return data
 
 ##############################################################################
-# Check usage and flags
-if len(sys.argv) != 5:
-        print "Usage: %s <mode> <ref> <input> <output>" % sys.argv[0]
-        print "Usage: available modes: encode, decode"
-        sys.exit()
+# Parse command line arguments
+opts = argparse.ArgumentParser(usage = "%(prog)s {enc, dec} <image file> [options]")
+opts.add_argument("mode", choices = ["enc", "dec"], help = "encode image with\
+                data or decode image")
+opts.add_argument("image", help = "carrier image")
+opts.add_argument("-i", metavar = "data", help = "The data to be encoded will\
+                be read from this file. This option is ignored when decoding\
+                images. Defaults to standard input.")
+opts.add_argument("-o", metavar = "output", help = "The encoded image or\
+                decoded data will be written to this file. Defaults to standard\
+                output.")
+options = opts.parse_args(sys.argv[1:])
 
-mode = sys.argv[1]
-if mode == "encode":
-        # Read and compress file contents
-        f = open(sys.argv[3])
-        data = compress(f.read())
-        f.close()
+im = Image.open(options.image).convert("RGB")
+if options.mode == "enc":
+        # Read and compress data
+        fin = open(options.i) if options.i else sys.stdin
+        data = compress(fin.read())
+        if options.i: fin.close() 
 
         # Need enough pixels to encode each bit
-        ref = Image.open(sys.argv[2]).convert("RGB")
-        w, h = ref.size
-        if (w * h * 3) < (len(data) * 8):
-                print "Error: input file too large for given reference image"
+        maxbits = im.size[0] * im.size[1] * 3
+        if maxbits < (len(data) * 8):
+                print "error: input file too large for given reference image"
+                print "maximum input size: %d" % maxbits
                 sys.exit()
 
-        pw = getpass.getpass()
-        iv = struct.pack("Q", random.getrandbits(64))
-        length = struct.pack("i", len(data))
-
         # Encoding format: original file length (4 bytes), IV, encrypted data
-        encode(ref, length + iv + encrypt(pw, iv, data))
+        length = struct.pack("i", len(data))
+        iv = struct.pack("Q", random.getrandbits(64))
 
-        ref.save("%s" % sys.argv[4], "PNG")
-elif mode == "decode":
-        im = Image.open(sys.argv[3]).convert("RGB")
-        pw = getpass.getpass()
-
+        encode(im, length + iv + encrypt(getpass.getpass(), iv, data))
+        im.save(options.o if options.o else sys.stdout, "PNG")
+elif options.mode == "dec":
+        # Decode data from image
         data = decode(im)
+
+        # Decrypt and decompress data
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
 
-        f = open(sys.argv[4], "w")
-        f.write(decompress(decrypt(pw, iv, data)[:length]))
-        f.close()
-else:
-        print "Error: unknown mode - available modes are encode, decode"
+        fout = open(options.o, "w") if options.o else sys.stdout
+        fout.write(decompress(decrypt(getpass.getpass(), iv, data)[:length]))
+        if options.o: fout.close()

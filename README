@@ -2,17 +2,28 @@ stegan.py
 Author: Eugene Ma (edma2)
 
 Dependencies: 
+----------------------
 PyCrypto (https://www.dlitz.net/software/pycrypto/)
 PIL (http://www.pythonware.com/products/pil/)
 
-stegan.py <mode> <reference image> <input file> <output file>
+Description:
+----------------------
+stegan.py has two modes of operation.
 
-Modes:
-encode 
-After compression and encryption, encode bits as imperceptible pixel
-alterations of reference image.
+When encoding an image with data, the input will be compressed and encrypted
+before each bit is encoded in the least significant bit of each pixel channel
+in the image.
 
-decode
-Compare input to reference image and recover bits using a XOR-like pixel by
-pixel comparison of reference image and input. Then decrypt and decompress to
-recover original file.
+When decoding an image for data, the least significant bit of each channel of
+each pixel is extracted, the resulting data is decrypted and decompressed.
+
+Usage:
+----------------------
+if the input or output file is not given, assume standard input and standard
+output, respectively.
+
+How to encode a file: 
+$ stegan.py enc <image> [-i input file] [-o output file]
+
+How to decode an image: 
+$ stegan.py dec <image> [-o output file]
