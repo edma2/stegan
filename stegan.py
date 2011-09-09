@@ -23,8 +23,8 @@ def decompress(data):
         buf.close()
         return output
 
-# Encrypt data with given key and initialization vector
-# Input data will be padded for you to ensure 8-byte alignment
+# Encrypt data with given key and initialization vector.
+# The output string may be of different length since due to padding.
 def encrypt(key, iv, data):
         padding = "\x00" * (8 - len(data) % 8) if len(data) != 8 else ""
         key = hashlib.sha256(key).digest()[:7]
@@ -35,40 +35,43 @@ def decrypt(key, iv, data):
         key = hashlib.sha256(key).digest()[:7]
         return bf.new(key, bf.MODE_CBC, iv).decrypt(data)
 
-# Encode data into reference image
+# Encode data into reference image where each input bit is embedded in the LSB
+# of RGB channels of a pixel. Encoding format: length (32-bit), data.
 def encode(ref, data):
-        pix = ref.load()
-        w, h = ref.size
-        x, y = (0, 0)
-
-        # Store number of bytes to encode in first 4 bytes 
         length = struct.pack('i', len(data))
+        x, y, ch = 0, 0, 0
+        pix = ref.load()
         for i in range(len(data) + 4):
                 byte = ord(length[i] if i < 4 else data[i-4])
                 for j in range(8):
-                        # Unpack pixel from tuple to list
                         p = list(pix[x, y])
-                        ch = random.randint(0, 2)
-                        # Subtle pixel alteration if bit is set 
-                        if byte & (1 << (7 - j)): p[ch] -= 1 if p[ch] else -1
+                        p[ch] = (p[ch] & ~1) \
+                                | ((byte & (1 << (7 - j))) >> (7 - j))
                         pix[x, y] = tuple(p)
-                        (x, y) = (x + 1, y) if x + 1 < w else (0, y + 1)
+                        ch += 1
+                        if ch == 3:
+                                (x, y) = (x + 1, y) if x + 1 < ref.size[0] \
+                                                    else (0, y + 1)
+                                ch = 0
 
-# Decode data from image and reference image and return data string
-def decode(ref, im):
-        pix, rpix = im.load(), ref.load()
-        w, h = im.size
-        x, y = (0, 0)
-        size, length, i = 4, 0, 0
+# Decode data from image. Assume the image contains at least 4 bytes of data
+# corresponding to the length, then set real length after length is decoded.
+def decode(im):
         data = ""
-
+        size, length = 4, 0
+        x, y, ch, i = 0, 0, 0, 0
+        pix = im.load()
         while i < size:
-                # Reconstruct full byte
                 byte = 0
+                # Decode byte mapped to next 8 bits
                 for j in range(8):
-                        if pix[x, y] != rpix[x, y]: byte |= (1 << (7 - j))
-                        (x, y) = (x + 1, y) if x + 1 < w else (0, y + 1)
-                # Decode length before data (little-endian)
+                        byte |= ((pix[x, y][ch] & 0x1) << (7 - j))
+                        ch += 1
+                        if ch == 3:
+                                (x, y) = (x + 1, y) if x + 1 < im.size[0] \
+                                                    else (0, y + 1)
+                                ch = 0
+                # First 4 bytes are length bytes, otherwise data byte
                 if i < 4: 
                         length |= (byte << (i * 8))
                         if i == 3: size += length
@@ -86,8 +89,6 @@ if len(sys.argv) != 5:
 
 mode = sys.argv[1]
 if mode == "encode":
-        random.seed()
-
         # Read and compress file contents
         f = open(sys.argv[3])
         data = compress(f.read())
@@ -98,7 +99,6 @@ if mode == "encode":
         w, h = ref.size
         if (w * h) < (len(data) * 8):
                 print "Error: input file too large for given reference image"
-                print len(data)
                 sys.exit()
 
         pw = getpass.getpass()
@@ -110,9 +110,9 @@ if mode == "encode":
 
         ref.save("%s" % sys.argv[4], "PNG")
 elif mode == "decode":
-        ref, im = [Image.open(sys.argv[i]).convert("RGB") for i in [2, 3]]
+        im = Image.open(sys.argv[3]).convert("RGB")
 
-        data = decode(ref, im)
+        data = decode(im)
         pw = getpass.getpass()
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
