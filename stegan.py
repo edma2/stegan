@@ -1,6 +1,6 @@
 # stegan.py
 # Author: Eugene Ma
-import sys, os, argparse, struct, random, getpass, gzip, StringIO, hashlib 
+import sys, os, struct, random, getpass, gzip, StringIO, hashlib 
 import Image
 from Crypto.Cipher import Blowfish as bf
 
@@ -80,26 +80,22 @@ def decode(im):
                 i += 1
         return data
 
-##############################################################################
-# Parse command line arguments
-opts = argparse.ArgumentParser(usage = "%(prog)s {enc, dec} <image file> [options]")
-opts.add_argument("mode", choices = ["enc", "dec"], help = "encode image with\
-                data or decode image")
-opts.add_argument("image", help = "carrier image")
-opts.add_argument("-i", metavar = "data", help = "The data to be encoded will\
-                be read from this file. This option is ignored when decoding\
-                images. Defaults to standard input.")
-opts.add_argument("-o", metavar = "output", help = "The encoded image or\
-                decoded data will be written to this file. Defaults to standard\
-                output.")
-options = opts.parse_args(sys.argv[1:])
+# Print usage and exit
+def usage():
+        print "%s enc <image file> <input> <output>" % sys.argv[0]
+        print "%s dec <image file> <output>" % sys.argv[0]
+        sys.exit()
 
-im = Image.open(options.image).convert("RGB")
-if options.mode == "enc":
-        # Read and compress data
-        fin = open(options.i) if options.i else sys.stdin
+##############################################################################
+if len(sys.argv) < 4: usage()
+
+im = Image.open(sys.argv[2]).convert("RGB")
+if sys.argv[1] == "enc" and len(sys.argv) == 5:
+        # Get data from file or standard input
+        i, o = sys.argv[3], sys.argv[4]
+        fin = sys.stdin if i == "-" else open(i)
         data = compress(fin.read())
-        if options.i: fin.close() 
+        if fin != sys.stdin: fin.close() 
 
         # Need enough pixels to encode each bit
         maxbits = im.size[0] * im.size[1] * 3
@@ -112,9 +108,10 @@ if options.mode == "enc":
         length = struct.pack("i", len(data))
         iv = struct.pack("Q", random.getrandbits(64))
 
+        # Save image to file or standard output
         encode(im, length + iv + encrypt(getpass.getpass(), iv, data))
-        im.save(options.o if options.o else sys.stdout, "PNG")
-elif options.mode == "dec":
+        im.save(sys.stdout if o == '-' else o, "PNG")
+elif sys.argv[1] == "dec" and len(sys.argv) == 4:
         # Decode data from image
         data = decode(im)
 
@@ -122,6 +119,10 @@ elif options.mode == "dec":
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
 
-        fout = open(options.o, "w") if options.o else sys.stdout
+        # Save data to file or standard otuput
+        o = sys.argv[3]
+        fout = sys.stdout if o == "-" else open(o, "w")
         fout.write(decompress(decrypt(getpass.getpass(), iv, data)[:length]))
-        if options.o: fout.close()
+        if fout != sys.stdout: fout.close()
+else:
+        usage()

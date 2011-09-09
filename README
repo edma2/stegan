@@ -19,11 +19,11 @@ each pixel is extracted, the resulting data is decrypted and decompressed.
 
 Usage:
 ----------------------
-If the input or output file is not given, assumes standard input and standard
-output, respectively.
+If input or output is given as "-", assumes standard input and standard output,
+respectively.
 
 How to encode a file: 
-$ stegan.py enc <image> [-i input file] [-o output file]
+$ stegan.py enc <image> <input> <output>
 
 How to decode an image: 
-$ stegan.py dec <image> [-o output file]
+$ stegan.py dec <image> <output>
