@@ -87,9 +87,7 @@ def usage():
         sys.exit()
 
 ##############################################################################
-if len(sys.argv) < 4: usage()
-
-im = Image.open(sys.argv[2]).convert("RGB")
+if len(sys.argv) in [4, 5]: im = Image.open(sys.argv[2]).convert("RGB")
 if sys.argv[1] == "enc" and len(sys.argv) == 5:
         # Get data from file or standard input
         i, o = sys.argv[3], sys.argv[4]
