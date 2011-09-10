@@ -84,18 +84,16 @@ def decode(im):
 def usage():
         print "%s enc <image file> <input> <output>" % sys.argv[0]
         print "%s dec <image file> <output>" % sys.argv[0]
-        sys.exit()
 
 ##############################################################################
-if len(sys.argv) in [4, 5]: im = Image.open(sys.argv[2]).convert("RGB")
-if sys.argv[1] == "enc" and len(sys.argv) == 5:
+if len(sys.argv) == 5 and sys.argv[1] == "enc": 
         # Get data from file or standard input
-        i, o = sys.argv[3], sys.argv[4]
-        fin = sys.stdin if i == "-" else open(i)
+        fin = sys.stdin if sys.argv[3] == "-" else open(sys.argv[3])
         data = compress(fin.read())
         if fin != sys.stdin: fin.close() 
 
         # Need enough pixels to encode each bit
+        im = Image.open(sys.argv[2]).convert("RGB")
         maxbits = im.size[0] * im.size[1] * 3
         if maxbits < (len(data) * 8):
                 print "error: input file too large for given reference image"
@@ -108,18 +106,17 @@ if sys.argv[1] == "enc" and len(sys.argv) == 5:
 
         # Save image to file or standard output
         encode(im, length + iv + encrypt(getpass.getpass(), iv, data))
-        im.save(sys.stdout if o == '-' else o, "PNG")
-elif sys.argv[1] == "dec" and len(sys.argv) == 4:
+        im.save(sys.stdout if sys.argv[4] == '-' else sys.argv[4], "PNG")
+elif len(sys.argv) == 4 and sys.argv[1] == "dec":
         # Decode data from image
-        data = decode(im)
+        data = decode(Image.open(sys.argv[2]).convert("RGB"))
 
         # Decrypt and decompress data
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
 
         # Save data to file or standard otuput
-        o = sys.argv[3]
-        fout = sys.stdout if o == "-" else open(o, "w")
+        fout = sys.stdout if sys.argv[3] == "-" else open(sys.argv[3], "w")
         fout.write(decompress(decrypt(getpass.getpass(), iv, data)[:length]))
         if fout != sys.stdout: fout.close()
 else:
