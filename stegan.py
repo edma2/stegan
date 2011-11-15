@@ -84,40 +84,43 @@ def decode(im):
 def usage():
         print "%s enc <image file> <input> <output>" % sys.argv[0]
         print "%s dec <image file> <output>" % sys.argv[0]
+        exit()
 
-##############################################################################
+"""
+Encoding format:
+
+==============================================
+Length of encoded payload in bytes (32-bits)
+==============================================
+Length of encrypted payload in bytes (32-bits)
+==============================================
+Initialization Vector (64-bits)
+==============================================
+Encrypted payload
+==============================================
+"""
+
 if len(sys.argv) == 5 and sys.argv[1] == "enc": 
-        # Get data from file or standard input
         fin = sys.stdin if sys.argv[3] == "-" else open(sys.argv[3])
         data = compress(fin.read())
         if fin != sys.stdin: fin.close() 
-
-        # Need enough pixels to encode each bit
         im = Image.open(sys.argv[2]).convert("RGB")
         maxbits = im.size[0] * im.size[1] * 3
         if maxbits < (len(data) * 8):
                 print "error: input file too large for given reference image"
                 print "maximum input size: %d bytes" % maxbits / 8.0
-                sys.exit()
-
-        # Encoding format: original file length (4 bytes), IV, encrypted data
+                exit()
         length = struct.pack("i", len(data))
         iv = struct.pack("Q", random.getrandbits(64))
-
-        # Save image to file or standard output
         encode(im, length + iv + encrypt(getpass.getpass(), iv, data))
         im.save(sys.stdout if sys.argv[4] == '-' else sys.argv[4], "PNG")
 elif len(sys.argv) == 4 and sys.argv[1] == "dec":
-        # Decode data from image
+        pw = getpass.getpass()
         data = decode(Image.open(sys.argv[2]).convert("RGB"))
-
-        # Decrypt and decompress data
         length = struct.unpack("i", data[:4])[0]
         iv, data = data[4:12], data[12:]
-
-        # Save data to file or standard otuput
         fout = sys.stdout if sys.argv[3] == "-" else open(sys.argv[3], "w")
-        fout.write(decompress(decrypt(getpass.getpass(), iv, data)[:length]))
+        fout.write(decompress(decrypt(pw, iv, data)[:length]))
         if fout != sys.stdout: fout.close()
 else:
         usage()
