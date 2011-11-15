@@ -28,12 +28,12 @@ def decompress(data):
 def encrypt(key, iv, data):
         padding = "\x00" * (8 - len(data) % 8) if len(data) != 8 else ""
         key = hashlib.sha256(key).digest()[:7]
-        return bf.new(key, bf.MODE_CBC, iv).encrypt(data + padding)
+        return bf.new(key, bf.MODE_OFB, iv).encrypt(data + padding)
 
 # Decrypt data with given key and initialization vector
 def decrypt(key, iv, data):
         key = hashlib.sha256(key).digest()[:7]
-        return bf.new(key, bf.MODE_CBC, iv).decrypt(data)
+        return bf.new(key, bf.MODE_OFB, iv).decrypt(data)
 
 # Tells us where the next bit should be encoded. Arguments are x and y
 # coordinates, current channel, and Image object. Returns a tuple of (x, y,
