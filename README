@@ -8,11 +8,15 @@ PIL (http://www.pythonware.com/products/pil/)
 
 Description:
 ----------------------
+pystego is a steganographic library for python, which encodes arbitrary streams
+of bytes into PNG image files.
 
 Usage:
 ----------------------
-How to encode a file: 
-$ main.py encode <image> <input> <output>
-
-How to decode an image: 
-$ main.py decode <image> <output>
+>>> image = Image.open('tux.png').convert('RGB')
+>>> stegan.encode(image, 'password', 'hello, world!')
+>>> image.save("test.png")
+>>> image = Image.open('test.png').convert('RGB')
+>>> stegan.decode(image, 'password')
+'hello, world!'
+>>>
