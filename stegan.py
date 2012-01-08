@@ -4,28 +4,31 @@ import sys, os, struct, random, gzip, StringIO, hashlib
 import Image
 import Crypto.Cipher.Blowfish as blowfish
 
+RED, GREEN, BLUE = 0, 1, 2
+
 """An ImageHandle provides an interface for embedding raw bytes into image
 pixels and recovery of data."""
 class ImageHandle:
-    """Initialize with Image object and an iterator yielding (x, y) tuples. The
-    iterator parameter allows different encoding formats to be used."""
+    """Initialize with Image object and an iterator yielding (x, y, channel)
+    tuples. The iterator parameter allows different encoding formats to be
+    used."""
     def __init__(self, image, positions):
         self.image = image
         self.pixels = image.load()
         self.positions = positions
 
-    """Embeds bit in image by settings the LSB of the red channel on or off.""" 
+    """Embeds bit in image by settings the LSB of a channel on or off."""
     def embed_bit(self, bit):
-        (x, y) = self.positions.next()
-        (red, green, blue) = self.pixels[x, y]
-        red = (red | 1) if bit else (red & ~1)
-        self.pixels[x, y] = (red, green, blue)
+        (x, y, ch) = self.positions.next()
+        pixel = list(self.pixels[x, y])
+        pixel[ch] = (pixel[ch] | 1) if bit else (pixel[ch] & ~1)
+        self.pixels[x, y] = tuple(pixel)
 
     """Recover the next encoded bit."""
     def recover_bit(self):
-        (x, y) = self.positions.next()
-        (red, green, blue) = self.pixels[x, y]
-        bit = red & 1
+        (x, y, ch) = self.positions.next()
+        pixel = self.pixels[x, y]
+        bit = pixel[ch] & 1
         return bit
 
     """Embeds byte into image starting with the LSB."""
@@ -104,7 +107,7 @@ def encode(image, password, bytestr):
     handle.embed_bytestr(header)
 
     # Encode payload in random order
-    used = [(x, y) for x in range(len(header)) for y in range(len(header))]
+    used = [(x, y, RED) for x in range(len(header)) for y in range(len(header))]
     handle.positions = random_positions(image, seed, used)
     handle.embed_bytestr(data)
 
@@ -119,7 +122,7 @@ def decode(image, password):
     seed = header[12:]
 
     # Decode data
-    used = [(x, y) for x in range(len(header)) for y in range(len(header))]
+    used = [(x, y, RED) for x in range(len(header)) for y in range(len(header))]
     handle.positions = random_positions(image, seed, used)
     data = handle.recover_bytestr(length)
 
@@ -127,11 +130,11 @@ def decode(image, password):
     key = hashlib.sha256(password).digest()[:7]
     return decompress(decrypt(key, iv, data))
 
-"""Generates row-major order pixel coordinates."""
+"""Generates row-major order pixel coordinates on the red channel."""
 def row_major_positions(image):
     for x in range(image.size[0]):
         for y in range(image.size[1]):
-            yield (x, y) # TODO: throw exception when out of bounds
+            yield (x, y, RED) # TODO: throw exception when out of bounds
 
 """Generates random positions given an initial seed and a list of pixels
 already used"""
@@ -140,7 +143,9 @@ def random_positions(image, seed, used):
     while True:
         x = random.randint(0, image.size[0]-1)
         y = random.randint(0, image.size[1]-1)
-        if (x, y) in used:
+        channel = random.randint(0, 2) # RED, GREEN, BLUE
+        pos = (x, y, channel)
+        if pos in used:
             continue
-        used.append((x, y))
-        yield (x, y)
+        used.append(pos)
+        yield pos
