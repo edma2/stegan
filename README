@@ -12,7 +12,7 @@ Description:
 Usage:
 ----------------------
 How to encode a file: 
-$ stegan.py encode <image> <input> <output>
+$ main.py encode <image> <input> <output>
 
 How to decode an image: 
-$ stegan.py decode <image> <output>
+$ main.py decode <image> <output>
