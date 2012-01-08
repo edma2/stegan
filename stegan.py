@@ -53,6 +53,10 @@ class ImageHandle:
             bytestr += chr(self.recover_byte())
         return bytestr
 
+    """Use a new positions iterator to get pixel coordinates."""
+    def swap_positions(self, positions):
+        self.positions = positions
+
 """Returns byte string compressed with GZip."""
 def compress(bytestr):
     buf = StringIO.StringIO()
