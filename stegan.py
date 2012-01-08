@@ -1,126 +1,114 @@
 # stegan.py
 # Author: Eugene Ma
-import sys, os, struct, random, getpass, gzip, StringIO, hashlib 
+import sys, os, struct, random, gzip, StringIO, hashlib
 import Image
-from Crypto.Cipher import Blowfish as bf
+import Crypto.Cipher.Blowfish as blowfish
 
-# Compress data with gzip and return output as string
-def compress(data):
-        buf = StringIO.StringIO()
-        gz = gzip.GzipFile(mode = "w", fileobj = buf)
-        gz.write(data)
-        gz.close()
-        output = buf.getvalue()
-        buf.close()
-        return output
+"""Encode byte string into image."""
+def encode(image, password, bytestr):
+    iv = struct.pack("Q", random.getrandbits(64))
+    key = hashlib.sha256(password).digest()[:7]
+    data = encrypt(key, iv, compress(bytestr))
+    handle = ImageHandle(image, row_major_positions(image))
+    handle.embed_bytestr(struct.pack('i', len(data)) + iv)
+    handle.embed_bytestr(data)
 
-# Decompress data with gzip and return output as string
-def decompress(data):
-        buf = StringIO.StringIO(data)
-        gz = gzip.GzipFile(mode = "r", fileobj = buf)
-        output = gz.read()
-        gz.close()
-        buf.close()
-        return output
+"""Returns byte string decoded from image."""
+def decode(image, password):
+    handle = ImageHandle(image, row_major_positions(image))
+    header = handle.recover_bytestr(12)
+    length = struct.unpack('i', header[:4])[0]
+    data = handle.recover_bytestr(length)
+    iv = header[4:]
+    key = hashlib.sha256(password).digest()[:7]
+    return decompress(decrypt(key, iv, data))
 
-# Encrypt data with given key and initialization vector.
-# The output string may be of different length since due to padding.
-def encrypt(key, iv, data):
-        padding = "\x00" * (8 - len(data) % 8) if len(data) != 8 else ""
-        key = hashlib.sha256(key).digest()[:7]
-        return bf.new(key, bf.MODE_OFB, iv).encrypt(data + padding)
+"""Generates row-major order pixel coordinates."""
+def row_major_positions(image):
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            yield (x, y) # TODO: throw exception when out of bounds
 
-# Decrypt data with given key and initialization vector
-def decrypt(key, iv, data):
-        key = hashlib.sha256(key).digest()[:7]
-        return bf.new(key, bf.MODE_OFB, iv).decrypt(data)
+"""An ImageHandle provides an interface for embedding raw bytes into image
+pixels and recovery of data."""
+class ImageHandle:
+    """Initialize with Image object and an iterator yielding (x, y) tuples. The
+    iterator parameter allows different encoding formats to be used."""
+    def __init__(self, image, positions):
+        self.image = image
+        self.pixels = image.load()
+        self.positions = positions
 
-# Tells us where the next bit should be encoded. Arguments are x and y
-# coordinates, current channel, and Image object. Returns a tuple of (x, y,
-# channel)
-def nextbit(x, y, ch, im):
-        if ch < 2:
-                return (x, y, ch + 1)
-        else:
-                return (x + 1, y, 0) if x + 1 < im.size[0] else (0, y + 1, 0)
+    """Embeds bit in image by settings the LSB of the red channel on or off.""" 
+    def embed_bit(self, bit):
+        (x, y) = self.positions.next()
+        (red, green, blue) = self.pixels[x, y]
+        red = (red | 1) if bit else (red & ~1)
+        self.pixels[x, y] = (red, green, blue)
 
-# Encode data into reference image where each input bit is embedded in the LSB
-# of RGB channels of a pixel. Encoding format: length (32-bit), data.
-def encode(im, data):
-        length = struct.pack('i', len(data))
-        x, y, ch = 0, 0, 0
-        pix = im.load()
-        for i in range(len(data) + 4):
-                b = ord(length[i] if i < 4 else data[i-4])
-                for j in range(8):
-                        p = list(pix[x, y])
-                        p[ch] = (p[ch] &~ 1) | ((b & (1<<(7 - j))) >> (7 - j))
-                        pix[x, y] = tuple(p)
-                        (x, y, ch) = nextbit(x, y, ch, im)
+    """Recover the next encoded bit."""
+    def recover_bit(self):
+        (x, y) = self.positions.next()
+        (red, green, blue) = self.pixels[x, y]
+        bit = red & 1
+        return bit
 
-# Decode data from image. Assume the image contains at least 4 bytes of data
-# corresponding to the length, then set real length after length is decoded.
-def decode(im):
-        data = ""
-        size, length = 4, 0
-        x, y, ch, i = 0, 0, 0, 0
-        pix = im.load()
-        while i < size:
-                byte = 0
-                # Decode byte mapped to next 8 channels
-                for j in range(8):
-                        byte |= ((pix[x, y][ch] & 1) << (7 - j))
-                        (x, y, ch) = nextbit(x, y, ch, im)
-                # First 4 bytes are length bytes, otherwise data byte
-                if i < 4: 
-                        length |= (byte << (i * 8))
-                        if i == 3: size += length
-                else:
-                        data += chr(byte)
-                i += 1
-        return data
+    """Embeds byte into image starting with the LSB."""
+    def embed_byte(self, byte):
+        for i in range(8):
+            self.embed_bit((byte & (1<<i)) >> i)
 
-# Print usage and exit
-def usage():
-        print "%s enc <image file> <input> <output>" % sys.argv[0]
-        print "%s dec <image file> <output>" % sys.argv[0]
-        exit()
+    """Recover the next 8 encoded bits and return as byte."""
+    def recover_byte(self):
+        byte = 0
+        for i in range(8):
+            bit = self.recover_bit()
+            byte |= bit << i
+        return byte
 
-"""
-Encoding format:
+    """Embeds byte string into image."""
+    def embed_bytestr(self, bytestr):
+        for byte in bytestr:
+            self.embed_byte(ord(byte))
 
-==============================================
-Length of encoded payload in bytes (32-bits)
-==============================================
-Length of encrypted payload in bytes (32-bits)
-==============================================
-Initialization Vector (64-bits)
-==============================================
-Encrypted payload
-==============================================
-"""
+    """Recover the next length bytes and return as string."""
+    def recover_bytestr(self, length):
+        bytestr = ''
+        for i in range(length):
+            bytestr += chr(self.recover_byte())
+        return bytestr
 
-if len(sys.argv) == 5 and sys.argv[1] == "enc": 
-        fin = sys.stdin if sys.argv[3] == "-" else open(sys.argv[3])
-        data = compress(fin.read())
-        if fin != sys.stdin: fin.close() 
-        im = Image.open(sys.argv[2]).convert("RGB")
-        maxbits = im.size[0] * im.size[1] * 3
-        if maxbits < (len(data) * 8):
-                print "error: input file too large for given reference image"
-                print "maximum input size: %d bytes" % maxbits / 8.0
-                exit()
-        length = struct.pack("i", len(data))
-        iv = struct.pack("Q", random.getrandbits(64))
-        encode(im, length + iv + encrypt(getpass.getpass(), iv, data))
-        im.save(sys.stdout if sys.argv[4] == '-' else sys.argv[4], "PNG")
-elif len(sys.argv) == 4 and sys.argv[1] == "dec":
-        pw = getpass.getpass()
-        data = decode(Image.open(sys.argv[2]).convert("RGB"))
-        length = struct.unpack("i", data[:4])[0]
-        iv, data = data[4:12], data[12:]
-        fout = sys.stdout if sys.argv[3] == "-" else open(sys.argv[3], "w")
-        fout.write(decompress(decrypt(pw, iv, data)[:length]))
-        if fout != sys.stdout: fout.close()
-else:
-        usage()
+"""Returns byte string compressed with GZip."""
+def compress(bytestr):
+    buf = StringIO.StringIO()
+    gz = gzip.GzipFile(mode = 'w', fileobj = buf)
+    gz.write(bytestr)
+    gz.close()
+    output = buf.getvalue()
+    buf.close()
+    return output
+
+"""Returns byte string decompressed with GZip."""
+def decompress(bytestr):
+    buf = StringIO.StringIO(bytestr)
+    gz = gzip.GzipFile(mode = 'r', fileobj = buf)
+    output = gz.read()
+    gz.close()
+    buf.close()
+    return output
+
+"""Encrypts byte string with given 64-bit key and initialization vector.
+Outputs ciphertext byte string."""
+def encrypt(key, iv, plaintext):
+    cipher = blowfish.new(key, blowfish.MODE_OFB, iv)
+    if len(plaintext) == 8:
+        padding = ''
+    else:
+        padding = '\x00' * (8 - len(plaintext) % 8)
+    return cipher.encrypt(plaintext + padding)
+
+"""Decrypts byte string with given key and initialization vector. Outputs
+plaintext byte string."""
+def decrypt(key, iv, ciphertext):
+    cipher = blowfish.new(key, blowfish.MODE_OFB, iv)
+    return cipher.decrypt(ciphertext)
