@@ -8,22 +8,11 @@ PIL (http://www.pythonware.com/products/pil/)
 
 Description:
 ----------------------
-stegan.py has two modes of operation.
-
-When encoding an image with data, the input will be compressed and encrypted
-before each bit is encoded in the least significant bit of each pixel channel
-in the image.
-
-When decoding an image for data, the least significant bit of each channel of
-each pixel is extracted, the resulting data is decrypted and decompressed.
 
 Usage:
 ----------------------
-If input or output is given as "-", assumes standard input and standard output,
-respectively.
-
 How to encode a file: 
-$ stegan.py enc <image> <input> <output>
+$ stegan.py encode <image> <input> <output>
 
 How to decode an image: 
-$ stegan.py dec <image> <output>
+$ stegan.py decode <image> <output>
