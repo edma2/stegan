@@ -120,3 +120,15 @@ def row_major_positions(image):
     for x in range(image.size[0]):
         for y in range(image.size[1]):
             yield (x, y) # TODO: throw exception when out of bounds
+
+"""Generates random positions given an initial seed and a list of pixels
+already used"""
+def random_positions(image, seed, used):
+    random.seed(seed)
+    while True:
+        x = random.randint(0, image.size[0])
+        y = random.randint(0, image.size[1])
+        if (x, y) in used:
+            continue
+        used.append((x, y))
+        yield (x, y)
