@@ -4,31 +4,6 @@ import sys, os, struct, random, gzip, StringIO, hashlib
 import Image
 import Crypto.Cipher.Blowfish as blowfish
 
-"""Encode byte string into image."""
-def encode(image, password, bytestr):
-    iv = struct.pack("Q", random.getrandbits(64))
-    key = hashlib.sha256(password).digest()[:7]
-    data = encrypt(key, iv, compress(bytestr))
-    handle = ImageHandle(image, row_major_positions(image))
-    handle.embed_bytestr(struct.pack('i', len(data)) + iv)
-    handle.embed_bytestr(data)
-
-"""Returns byte string decoded from image."""
-def decode(image, password):
-    handle = ImageHandle(image, row_major_positions(image))
-    header = handle.recover_bytestr(12)
-    length = struct.unpack('i', header[:4])[0]
-    data = handle.recover_bytestr(length)
-    iv = header[4:]
-    key = hashlib.sha256(password).digest()[:7]
-    return decompress(decrypt(key, iv, data))
-
-"""Generates row-major order pixel coordinates."""
-def row_major_positions(image):
-    for x in range(image.size[0]):
-        for y in range(image.size[1]):
-            yield (x, y) # TODO: throw exception when out of bounds
-
 """An ImageHandle provides an interface for embedding raw bytes into image
 pixels and recovery of data."""
 class ImageHandle:
@@ -112,3 +87,32 @@ plaintext byte string."""
 def decrypt(key, iv, ciphertext):
     cipher = blowfish.new(key, blowfish.MODE_OFB, iv)
     return cipher.decrypt(ciphertext)
+
+"""Encode byte string into image."""
+def encode(image, password, bytestr):
+    handle = ImageHandle(image, row_major_positions(image))
+
+    iv = struct.pack("Q", random.getrandbits(64))
+    key = hashlib.sha256(password).digest()[:7]
+
+    data = encrypt(key, iv, compress(bytestr))
+    handle.embed_bytestr(struct.pack('i', len(data)) + iv)
+    handle.embed_bytestr(data)
+
+"""Returns byte string decoded from image."""
+def decode(image, password):
+    handle = ImageHandle(image, row_major_positions(image))
+    header = handle.recover_bytestr(12)
+
+    key = hashlib.sha256(password).digest()[:7]
+    iv = header[4:]
+
+    length = struct.unpack('i', header[:4])[0]
+    data = handle.recover_bytestr(length)
+    return decompress(decrypt(key, iv, data))
+
+"""Generates row-major order pixel coordinates."""
+def row_major_positions(image):
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            yield (x, y) # TODO: throw exception when out of bounds
