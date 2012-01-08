@@ -53,10 +53,6 @@ class ImageHandle:
             bytestr += chr(self.recover_byte())
         return bytestr
 
-    """Use a new positions iterator to get pixel coordinates."""
-    def swap_positions(self, positions):
-        self.positions = positions
-
 """Returns byte string compressed with GZip."""
 def compress(bytestr):
     buf = StringIO.StringIO()
@@ -96,23 +92,39 @@ def decrypt(key, iv, ciphertext):
 def encode(image, password, bytestr):
     handle = ImageHandle(image, row_major_positions(image))
 
-    iv = struct.pack("Q", random.getrandbits(64))
+    # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
-
+    iv = struct.pack("Q", random.getrandbits(64))
     data = encrypt(key, iv, compress(bytestr))
-    handle.embed_bytestr(struct.pack('i', len(data)) + iv)
+
+    # Encode header in row-major order
+    # header:  length (4), iv (8), seed (8)
+    seed = struct.pack("Q", random.getrandbits(64))
+    header = struct.pack('i', len(data)) + iv + seed
+    handle.embed_bytestr(header)
+
+    # Encode payload in random order
+    used = [(x, y) for x in range(len(header)) for y in range(len(header))]
+    handle.positions = random_positions(image, seed, used)
     handle.embed_bytestr(data)
 
 """Returns byte string decoded from image."""
 def decode(image, password):
     handle = ImageHandle(image, row_major_positions(image))
-    header = handle.recover_bytestr(12)
 
-    key = hashlib.sha256(password).digest()[:7]
-    iv = header[4:]
-
+    # Decode header
+    header = handle.recover_bytestr(20)
     length = struct.unpack('i', header[:4])[0]
+    iv = header[4:12]
+    seed = header[12:]
+
+    # Decode data
+    used = [(x, y) for x in range(len(header)) for y in range(len(header))]
+    handle.positions = random_positions(image, seed, used)
     data = handle.recover_bytestr(length)
+
+    # Decrypt and decompress data
+    key = hashlib.sha256(password).digest()[:7]
     return decompress(decrypt(key, iv, data))
 
 """Generates row-major order pixel coordinates."""
@@ -126,8 +138,8 @@ already used"""
 def random_positions(image, seed, used):
     random.seed(seed)
     while True:
-        x = random.randint(0, image.size[0])
-        y = random.randint(0, image.size[1])
+        x = random.randint(0, image.size[0]-1)
+        y = random.randint(0, image.size[1]-1)
         if (x, y) in used:
             continue
         used.append((x, y))
