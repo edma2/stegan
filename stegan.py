@@ -107,7 +107,10 @@ def encode(image, password, bytestr):
     handle.embed_bytestr(header)
 
     # Encode payload in random order
-    used = [(x, y, RED) for x in range(len(header)) for y in range(len(header))]
+    used = set()
+    for x in range(len(header)):
+        for y in range(len(header)):
+            used.add((x, y, RED))
     handle.positions = random_positions(image, seed, used)
     handle.embed_bytestr(data)
 
@@ -122,7 +125,10 @@ def decode(image, password):
     seed = header[12:]
 
     # Decode data
-    used = [(x, y, RED) for x in range(len(header)) for y in range(len(header))]
+    used = set()
+    for x in range(len(header)):
+        for y in range(len(header)):
+            used.add((x, y, RED))
     handle.positions = random_positions(image, seed, used)
     data = handle.recover_bytestr(length)
 
@@ -136,8 +142,8 @@ def row_major_positions(image):
         for y in range(image.size[1]):
             yield (x, y, RED) # TODO: throw exception when out of bounds
 
-"""Generates random positions given an initial seed and a list of pixels
-already used"""
+"""Generates random positions given an initial seed and a set of pixels already
+used"""
 def random_positions(image, seed, used):
     random.seed(seed)
     while True:
@@ -147,5 +153,5 @@ def random_positions(image, seed, used):
         pos = (x, y, channel)
         if pos in used:
             continue
-        used.append(pos)
+        used.add(pos)
         yield pos
