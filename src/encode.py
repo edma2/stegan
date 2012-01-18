@@ -24,7 +24,8 @@ def encrypt(key, iv, plaintext):
 
 """Encode byte string into image."""
 def encode(image, password, str):
-    handle = stegan.Steganographer(image)
+    positions = stegan.row_major(image)
+    handle = stegan.Steganographer(image, positions)
 
     # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
@@ -35,11 +36,12 @@ def encode(image, password, str):
     # header:  length (4), iv (8), seed (8)
     seed = struct.pack("Q", random.getrandbits(64))
     header = struct.pack('i', len(data)) + iv + seed
-    handle.write_str(header, stegan.row_major_positions(image))
+    handle.write(header)
 
     # Encode payload in random order
     used = set()
     for x in range(len(header)):
         for y in range(len(header)):
             used.add((x, y, stegan.RED))
-    handle.write_str(data, stegan.random_positions(image, seed, used))
+    handle.positions = stegan.random_with_seed(image, seed, used)
+    handle.write(data)

@@ -19,10 +19,11 @@ def decrypt(key, iv, ciphertext):
 
 """Returns byte string decoded from image."""
 def decode(image, password):
-    handle = stegan.Steganographer(image)
+    positions = stegan.row_major(image)
+    handle = stegan.Steganographer(image, positions)
 
     # Decode header
-    header = handle.read_str(20, stegan.row_major_positions(image))
+    header = handle.read(20)
     length = struct.unpack('i', header[:4])[0]
     iv = header[4:12]
     seed = header[12:]
@@ -32,7 +33,8 @@ def decode(image, password):
     for x in range(len(header)):
         for y in range(len(header)):
             used.add((x, y, stegan.RED))
-    data = handle.read_str(length, stegan.random_positions(image, seed, used))
+    handle.positions = stegan.random_with_seed(image, seed, used)
+    data = handle.read(length)
 
     # Decrypt and decompress data
     key = hashlib.sha256(password).digest()[:7]
