@@ -1,5 +1,3 @@
-# stegan.py
-# Author: Eugene Ma
 import Image, random
 
 # RGB color model
@@ -74,7 +72,7 @@ def row_major(image):
     """Generates row-major coordinates on the red channel."""
     for x in range(image.size[0]):
         for y in range(image.size[1]):
-            yield (x, y, RED) # TODO: throw exception when out of bounds
+            yield (x, y, RED)
 
 def random_with_seed(image, seed):
     """Generates random coordinates given an initial seed."""
