@@ -2,6 +2,7 @@
 # Author: Eugene Ma
 import Image, random
 
+# RGB color model
 RED, GREEN, BLUE = 0, 1, 2
 
 """An Steganographer provides an interface for reading and writing raw bytes
