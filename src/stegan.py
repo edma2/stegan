@@ -7,22 +7,38 @@ RED, GREEN, BLUE = 0, 1, 2
 
 class Steganographer:
     """Provides an interface for reading and writing raw bytes into image
-    pixels."""
+    pixels. @image is the image to be used as the container, a PIL Image
+    object, using the RGB color model. @positions is a position iterator
+    yielding (x, y, channel) coordinates upon request. @positions is not
+    required to return unique coordinates. However, we keep a set of
+    coordinates already used. If @positions returns a coordinate mapped to a
+    bit already read or written, it is skipped."""
+
     def __init__(self, image, positions):
         self.image = image
         self.pixels = image.load()
         self.positions = positions
+        self.used = set() # (x, y, channel)
+
+    def next_position(self):
+        """Returns the next available position."""
+        while True:
+            pos = self.positions.next()
+            if pos not in self.used:
+                self.used.add(pos)
+                break
+        return pos
 
     def write_bit(self, bit):
         """Embeds bit in image by settings the LSB of a channel on or off."""
-        (x, y, ch) = self.positions.next()
+        (x, y, ch) = self.next_position()
         pixel = list(self.pixels[x, y])
         pixel[ch] = (pixel[ch] | 1) if bit else (pixel[ch] & ~1)
         self.pixels[x, y] = tuple(pixel)
 
     def read_bit(self):
         """Reads the next encoded bit."""
-        (x, y, ch) = self.positions.next()
+        (x, y, ch) = self.next_position()
         pixel = self.pixels[x, y]
         bit = pixel[ch] & 1
         return bit
@@ -55,22 +71,16 @@ class Steganographer:
 ### Sample position iterators ###
 
 def row_major(image):
-    """Generates row-major coordinates on the red channel, starting from
-    (0, 0)."""
+    """Generates row-major coordinates on the red channel."""
     for x in range(image.size[0]):
         for y in range(image.size[1]):
             yield (x, y, RED) # TODO: throw exception when out of bounds
 
-def random_with_seed(image, seed, used):
-    """Generates random coordinates given an initial seed and a set of pixels
-    already used."""
+def random_with_seed(image, seed):
+    """Generates random coordinates given an initial seed."""
     random.seed(seed)
     while True:
         x = random.randint(0, image.size[0]-1)
         y = random.randint(0, image.size[1]-1)
         channel = random.randint(0, 2) # RED, GREEN, BLUE
-        pos = (x, y, channel)
-        if pos in used:
-            continue
-        used.add(pos)
-        yield pos
+        yield (x, y, channel)

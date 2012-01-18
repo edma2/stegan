@@ -29,11 +29,7 @@ def decode(image, password):
     seed = header[12:]
 
     # Decode data
-    used = set()
-    for x in range(len(header)):
-        for y in range(len(header)):
-            used.add((x, y, stegan.RED))
-    handle.positions = stegan.random_with_seed(image, seed, used)
+    handle.positions = stegan.random_with_seed(image, seed)
     data = handle.read(length)
 
     # Decrypt and decompress data

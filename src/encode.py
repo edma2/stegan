@@ -39,9 +39,5 @@ def encode(image, password, str):
     handle.write(header)
 
     # Encode payload in random order
-    used = set()
-    for x in range(len(header)):
-        for y in range(len(header)):
-            used.add((x, y, stegan.RED))
-    handle.positions = stegan.random_with_seed(image, seed, used)
+    handle.positions = stegan.random_with_seed(image, seed)
     handle.write(data)
