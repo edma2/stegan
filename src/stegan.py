@@ -6,9 +6,9 @@ import Crypto.Cipher.Blowfish as blowfish
 
 RED, GREEN, BLUE = 0, 1, 2
 
-"""An ImageHandle provides an interface for embedding raw bytes into image
+"""An Steganographer provides an interface for embedding raw bytes into image
 pixels and recovery of data."""
-class ImageHandle:
+class Steganographer:
     """Initialize with Image object and an iterator yielding (x, y, channel)
     tuples. The iterator parameter allows different encoding formats to be
     used."""
@@ -96,7 +96,7 @@ def decrypt(key, iv, ciphertext):
 
 """Encode byte string into image."""
 def encode(image, password, bytestr):
-    handle = ImageHandle(image)
+    handle = Steganographer(image)
 
     # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
@@ -118,7 +118,7 @@ def encode(image, password, bytestr):
 
 """Returns byte string decoded from image."""
 def decode(image, password):
-    handle = ImageHandle(image)
+    handle = Steganographer(image)
 
     # Decode header
     header = handle.recover_bytestr(20, row_major_positions(image))
