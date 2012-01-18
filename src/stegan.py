@@ -23,7 +23,7 @@ class Steganographer:
         pixel[ch] = (pixel[ch] | 1) if bit else (pixel[ch] & ~1)
         self.pixels[x, y] = tuple(pixel)
 
-    """read the next encoded bit."""
+    """Read the next encoded bit."""
     def read_bit(self):
         (x, y, ch) = self.positions.next()
         pixel = self.pixels[x, y]
@@ -35,7 +35,7 @@ class Steganographer:
         for i in range(8):
             self.write_bit((byte & (1<<i)) >> i)
 
-    """read the next 8 encoded bits and return as byte."""
+    """Read the next 8 encoded bits and return as byte."""
     def read_byte(self):
         byte = 0
         for i in range(8):
@@ -50,7 +50,7 @@ class Steganographer:
         for byte in str:
             self.write_byte(ord(byte))
 
-    """read the next length bytes and return as string, using @positions as
+    """Read the next length bytes and return as string, using @positions as
     pixel iterator."""
     def read_str(self, length, positions):
         self.positions = positions
