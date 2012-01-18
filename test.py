@@ -1,9 +1,9 @@
 import sys, Image, getpass
 sys.path.append('src')
-import stegan
+import encode, decode
 
 image = Image.open('test/tux.png').convert('RGB')
-stegan.encode(image, 'password', 'hello, world!')
+encode.encode(image, 'password', 'hello, world!')
 image.save("test/test.png")
 image = Image.open('test/test.png').convert('RGB')
-print stegan.decode(image, 'password')
+print decode.decode(image, 'password')
