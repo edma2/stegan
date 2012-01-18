@@ -12,10 +12,9 @@ class ImageHandle:
     """Initialize with Image object and an iterator yielding (x, y, channel)
     tuples. The iterator parameter allows different encoding formats to be
     used."""
-    def __init__(self, image, positions):
+    def __init__(self, image):
         self.image = image
         self.pixels = image.load()
-        self.positions = positions
 
     """Embeds bit in image by settings the LSB of a channel on or off."""
     def embed_bit(self, bit):
@@ -44,13 +43,17 @@ class ImageHandle:
             byte |= bit << i
         return byte
 
-    """Embeds byte string into image."""
-    def embed_bytestr(self, bytestr):
+    """Embeds byte string into image. The ordering of pixels used is specified
+    by the @positions iterator."""
+    def embed_bytestr(self, bytestr, positions):
+        self.positions = positions
         for byte in bytestr:
             self.embed_byte(ord(byte))
 
-    """Recover the next length bytes and return as string."""
-    def recover_bytestr(self, length):
+    """Recover the next length bytes and return as string, using @positions as
+    pixel iterator."""
+    def recover_bytestr(self, length, positions):
+        self.positions = positions
         bytestr = ''
         for i in range(length):
             bytestr += chr(self.recover_byte())
@@ -93,7 +96,7 @@ def decrypt(key, iv, ciphertext):
 
 """Encode byte string into image."""
 def encode(image, password, bytestr):
-    handle = ImageHandle(image, row_major_positions(image))
+    handle = ImageHandle(image)
 
     # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
@@ -104,22 +107,21 @@ def encode(image, password, bytestr):
     # header:  length (4), iv (8), seed (8)
     seed = struct.pack("Q", random.getrandbits(64))
     header = struct.pack('i', len(data)) + iv + seed
-    handle.embed_bytestr(header)
+    handle.embed_bytestr(header, row_major_positions(image))
 
     # Encode payload in random order
     used = set()
     for x in range(len(header)):
         for y in range(len(header)):
             used.add((x, y, RED))
-    handle.positions = random_positions(image, seed, used)
-    handle.embed_bytestr(data)
+    handle.embed_bytestr(data, random_positions(image, seed, used))
 
 """Returns byte string decoded from image."""
 def decode(image, password):
-    handle = ImageHandle(image, row_major_positions(image))
+    handle = ImageHandle(image)
 
     # Decode header
-    header = handle.recover_bytestr(20)
+    header = handle.recover_bytestr(20, row_major_positions(image))
     length = struct.unpack('i', header[:4])[0]
     iv = header[4:12]
     seed = header[12:]
@@ -129,8 +131,7 @@ def decode(image, password):
     for x in range(len(header)):
         for y in range(len(header)):
             used.add((x, y, RED))
-    handle.positions = random_positions(image, seed, used)
-    data = handle.recover_bytestr(length)
+    data = handle.recover_bytestr(length, random_positions(image, seed, used))
 
     # Decrypt and decompress data
     key = hashlib.sha256(password).digest()[:7]
