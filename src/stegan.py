@@ -19,7 +19,8 @@ class Steganographer:
         self.used = set() # (x, y, channel)
 
     def next_position(self):
-        """Returns the next available position."""
+        """Returns the next available position. Assumes @positions will
+        terminate at some point. (otherwise, we loop forever!)"""
         while True:
             pos = self.positions.next()
             if pos not in self.used:
