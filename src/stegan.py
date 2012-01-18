@@ -4,12 +4,9 @@ import Image, random
 
 RED, GREEN, BLUE = 0, 1, 2
 
-"""An Steganographer provides an interface for embedding raw bytes into image
-pixels and ready of data."""
+"""An Steganographer provides an interface for reading and writing raw bytes
+into image pixels."""
 class Steganographer:
-    """Initialize with Image object and an iterator yielding (x, y, channel)
-    tuples. The iterator parameter allows different encoding formats to be
-    used."""
     def __init__(self, image):
         self.image = image
         self.pixels = image.load()
@@ -41,15 +38,13 @@ class Steganographer:
             byte |= bit << i
         return byte
 
-    """Embeds byte string into image. The ordering of pixels used is specified
-    by the @positions iterator."""
+    """Embeds byte string into image."""
     def write_str(self, str, positions):
         self.positions = positions
         for byte in str:
             self.write_byte(ord(byte))
 
-    """Read the next length bytes and return as string, using @positions as
-    pixel iterator."""
+    """Read the next length bytes and return as string."""
     def read_str(self, length, positions):
         self.positions = positions
         str = ''
@@ -57,7 +52,8 @@ class Steganographer:
             str += chr(self.read_byte())
         return str
 
-"""Generates row-major order pixel coordinates on the red channel."""
+"""Generates row-major order pixel coordinates on the red channel, starting
+from (0, 0). """
 def row_major_positions(image):
     for x in range(image.size[0]):
         for y in range(image.size[1]):
