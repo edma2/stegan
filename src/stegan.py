@@ -73,6 +73,7 @@ def row_major(image):
     for x in range(image.size[0]):
         for y in range(image.size[1]):
             yield (x, y, RED)
+    # TODO: throw exception here
 
 def random_with_seed(image, seed):
     """Generates random coordinates given an initial seed."""
@@ -82,3 +83,4 @@ def random_with_seed(image, seed):
         y = random.randint(0, image.size[1]-1)
         channel = random.randint(0, 2) # RED, GREEN, BLUE
         yield (x, y, channel)
+    # FIXME: this will never terminate
