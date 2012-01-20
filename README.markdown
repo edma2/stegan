@@ -1,4 +1,4 @@
-# Author: Eugene Ma (edma2)
+Author: Eugene Ma (edma2)
 
 # Dependencies: 
 * PyCrypto (https://www.dlitz.net/software/pycrypto/)
