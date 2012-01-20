@@ -23,21 +23,21 @@ def encrypt(key, iv, plaintext):
     return cipher.encrypt(plaintext + padding)
 
 """Encode byte string into image."""
-def encode(image, password, str):
-    positions = stegan.row_major(image)
-    handle = stegan.Steganographer(image, positions)
+def encode(im, password, bytes):
+    w, h = im.size
+    linear = ((x,y,c) for x in range(w) for y in range(h) for c in range(3))
+    writer = stegan.Steganographer(im, linear)
 
     # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
     iv = struct.pack("Q", random.getrandbits(64))
-    data = encrypt(key, iv, compress(str))
+    data = encrypt(key, iv, compress(bytes))
 
     # Encode header in row-major order
-    # header:  length (4), iv (8), seed (8)
     seed = struct.pack("Q", random.getrandbits(64))
     header = struct.pack('i', len(data)) + iv + seed
-    handle.write(header)
+    writer.write(header)
 
     # Encode payload in random order
-    handle.positions = stegan.random_with_seed(image, seed)
-    handle.write(data)
+    writer.randomize(seed)
+    writer.write(data)
