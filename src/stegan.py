@@ -44,7 +44,7 @@ class Steganographer(object):
             str += chr(self.read_byte())
         return str
 
-    def randomize(self, seed):
+    def scramble_iter(self, seed):
         available = list(self.iter)
         random.seed(seed)
         random.shuffle(available)
@@ -64,11 +64,9 @@ class Writer(Steganographer):
     def compress(self, str):
         """Returns the string in compressed form"""
         buf = StringIO.StringIO()
-        # Write compressed string to string buffer
         gz = gzip.GzipFile(mode = 'w', fileobj = buf)
         gz.write(str)
         gz.close()
-        # Get string from buffer
         return buf.getvalue()
 
     def encrypt(self, plaintext):
@@ -86,10 +84,9 @@ class Writer(Steganographer):
     def encode(self, str):
         plaintext = self.compress(str)
         ciphertext = self.encrypt(plaintext)
-        # Write header
-        self.write(struct.pack('i', len(ciphertext)) + self.iv)
-        # Scramble iterator and write payload
-        self.randomize(self.iv)
+        header = struct.pack('i', len(ciphertext)) + self.iv
+        self.write(header)
+        self.scramble_iter(self.iv)
         self.write(ciphertext)
 
 class Reader(Steganographer):
@@ -103,14 +100,11 @@ class Reader(Steganographer):
     def decompress(self, str):
         """Returns the (GZip compressed) string in decompressed form"""
         buf = StringIO.StringIO(str)
-        # Read compressed data into gzip object, decompress
         gz = gzip.GzipFile(mode = 'r', fileobj = buf)
-        # Get string
-        output = gz.read()
-        # Cleanup
+        str = gz.read()
         gz.close()
         buf.close()
-        return output
+        return str
 
     def decrypt(self, ciphertext):
         """Decrypts ciphertext, returning plaintext"""
@@ -122,6 +116,5 @@ class Reader(Steganographer):
         length = self.read(4)
         length = struct.unpack('i', length)[0]
         self.iv = self.read(8)
-        self.randomize(self.iv)
-        ciphertext = self.read(length)
-        return self.decompress(self.decrypt(ciphertext))
+        self.scramble_iter(self.iv)
+        return self.decompress(self.decrypt(self.read(length)))
