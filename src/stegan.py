@@ -5,10 +5,11 @@ class Steganographer:
     pixels. @image is the image to be used as the container, a PIL Image
     object, using the RGB color model."""
 
-    def __init__(self, image, iter):
-        self.image = image
-        self.pixels = image.load()
-        self.iter = iter
+    def __init__(self, im):
+        self.im = im
+        self.pixels = self.im.load()
+        w, h = self.im.size
+        self.iter = ((x,y,c) for x in range(w) for y in range(h) for c in range(3))
 
     def write_bit(self, bit):
         """Embeds bit in image by settings the LSB of a channel on or off."""

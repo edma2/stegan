@@ -19,9 +19,7 @@ def decrypt(key, iv, ciphertext):
 
 """Returns byte string decoded from image."""
 def decode(im, password):
-    w, h = im.size
-    linear = ((x,y,c) for x in range(w) for y in range(h) for c in range(3))
-    reader = stegan.Steganographer(im, linear)
+    reader = stegan.Steganographer(im)
 
     # Decode header
     header = reader.read(12)

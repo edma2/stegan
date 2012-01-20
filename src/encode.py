@@ -24,9 +24,7 @@ def encrypt(key, iv, plaintext):
 
 """Encode byte string into image."""
 def encode(im, password, bytes):
-    w, h = im.size
-    linear = ((x,y,c) for x in range(w) for y in range(h) for c in range(3))
-    writer = stegan.Steganographer(im, linear)
+    writer = stegan.Steganographer(im)
 
     # Compress and encrypt data with password
     key = hashlib.sha256(password).digest()[:7]
