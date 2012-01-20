@@ -24,13 +24,12 @@ def decode(im, password):
     reader = stegan.Steganographer(im, linear)
 
     # Decode header
-    header = reader.read(20)
+    header = reader.read(12)
     length = struct.unpack('i', header[:4])[0]
     iv = header[4:12]
-    seed = header[12:]
 
     # Decode data
-    reader.randomize(seed)
+    reader.randomize(iv)
     data = reader.read(length)
 
     # Decrypt and decompress data

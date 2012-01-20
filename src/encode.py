@@ -34,10 +34,9 @@ def encode(im, password, bytes):
     data = encrypt(key, iv, compress(bytes))
 
     # Encode header in row-major order
-    seed = struct.pack("Q", random.getrandbits(64))
-    header = struct.pack('i', len(data)) + iv + seed
+    header = struct.pack('i', len(data)) + iv
     writer.write(header)
 
     # Encode payload in random order
-    writer.randomize(seed)
+    writer.randomize(iv)
     writer.write(data)
