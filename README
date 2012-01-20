@@ -13,10 +13,19 @@ of bytes into PNG image files.
 
 Usage:
 ----------------------
->>> image = Image.open('tux.png').convert('RGB')
->>> stegan.encode(image, 'password', 'hello, world!')
->>> image.save("test.png")
->>> image = Image.open('test.png').convert('RGB')
->>> stegan.decode(image, 'password')
-'hello, world!'
->>>
+x201:stegan/ master✗ % cat test.py
+import sys, Image, getpass
+sys.path.append('src')
+import stegan
+
+im = Image.open('test/tux.png').convert('RGB')
+writer = stegan.Writer(im, 'password')
+writer.encode('hello, world')
+im.save("test/test.png")
+
+im = Image.open('test/test.png').convert('RGB')
+reader = stegan.Reader(im, 'password')
+print reader.decode()
+
+x201:stegan/ master✗ % python test.py
+hello, world!
