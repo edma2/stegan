@@ -12,15 +12,15 @@ class Steganographer(object):
         self.iter = iter
 
     def write_bit(self, bit):
-        (x, y, ch) = self.iter.next()
+        (x, y, c) = self.iter.next()
         pixel = list(self.pixels[x, y])
-        pixel[ch] = (pixel[ch] | 1) if bit else (pixel[ch] & ~1)
+        pixel[c] = (pixel[c] & 0xfe) | bit
         self.pixels[x, y] = tuple(pixel)
 
     def read_bit(self):
-        (x, y, ch) = self.iter.next()
+        (x, y, c) = self.iter.next()
         pixel = self.pixels[x, y]
-        bit = pixel[ch] & 1
+        bit = pixel[c] & 1
         return bit
 
     def write_byte(self, byte):
