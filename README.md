@@ -1,14 +1,20 @@
 Author: Eugene Ma (edma2)
 
-# Dependencies: 
+------------------------------------------------
+Dependencies: 
+------------------------------------------------
 * PyCrypto (https://www.dlitz.net/software/pycrypto/)
 * PIL (http://www.pythonware.com/products/pil/)
 
-# Description:
+------------------------------------------------
+Description:
+------------------------------------------------
 stegan is a steganographic tool for Python, encoding arbitrary streams
 of bytes into PNG image files.
 
-# Usage:
+------------------------------------------------
+Usage:
+------------------------------------------------
 ```python
 >>> import Image, stegan
 >>> im = Image.open('tux.png').convert('RGB')
